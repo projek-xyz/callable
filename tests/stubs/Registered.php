@@ -8,4 +8,14 @@ class Registered
     {
         // .
     }
+
+    /**
+     * method_exists() reports private methods, but is_callable() does not —
+     * a pair naming it must fail with an error that points at the visibility
+     * problem.
+     */
+    private function hidden()
+    {
+        // .
+    }
 }

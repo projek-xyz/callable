@@ -17,9 +17,7 @@ interface ResolverInterface
     public function resolveCallable($callable): callable;
 
     /**
-     * @param  array<mixed>  $params
-     *
      * @throws DependencyException
      */
-    public function resolveParameter(ReflectionParameter $param, array $params = []): mixed;
+    public function resolveParameter(ReflectionParameter $param): mixed;
 }
