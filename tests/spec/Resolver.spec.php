@@ -354,7 +354,7 @@ describe(Resolver::class, function () {
         }))->getParameters()[0];
 
         expect(fn () => $this->r->resolveParameter($param))
-            ->toThrow(new DependencyException('out', 0, null, 'by-reference parameter $out must be provided explicitly'));
+            ->toThrow(new DependencyException('out', 0, 'by-reference parameter $out must be provided explicitly'));
     });
 
     it('Should not let a container entry shadow a built-in default', function () {

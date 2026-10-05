@@ -10,8 +10,8 @@ class DependencyException extends RuntimeException
     public function __construct(
         public readonly string $name,
         public readonly int $position,
-        ?Throwable $previous = null,
         ?string $detail = null,
+        ?Throwable $previous = null,
     ) {
         $message = sprintf('Dependency %s at position %d is not resolvable', $name, $position);
 
