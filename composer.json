@@ -1,7 +1,7 @@
 {
     "name": "projek-xyz/callable",
-    "description": "Project Template",
-    "keywords": ["project", "callable"],
+    "description": "Generic callable resolver and handler library",
+    "keywords": ["callable-resolver", "callable-handler", "dependency-injection", "di", "psr-11"],
     "type": "library",
     "license": "MIT",
     "authors": [
