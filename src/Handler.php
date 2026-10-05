@@ -6,6 +6,7 @@ namespace Projek\Callable;
 
 use Closure;
 use Error;
+use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use ReflectionFunction;
@@ -41,6 +42,7 @@ final class Handler
      *
      * @throws DependencyException If a required parameter cannot be resolved.
      * @throws UnresolvableException If the callable itself cannot be resolved.
+     * @throws ContainerExceptionInterface If the container fails with more than a missing entry (propagated untouched).
      * @throws Error If $params violates native argument-ordering rules.
      */
     public function handle(array|callable|object|string $callable, array $params = [])
@@ -58,13 +60,14 @@ final class Handler
     }
 
     /**
-     * Build the final argument list for the callable, binding the caller's
-     * $provided arguments against the declared $parameters: integer keys are
-     * POSITIONAL BY ORDER (the key values themselves are ignored — [5 => 'x']
-     * feeds the first parameter, and the sparse keys left behind by
-     * array_filter() still line up), string keys are NAMED, and parameters
-     * the caller did not provide are auto-wired from the container (then
-     * their default value). References into $provided are preserved so
+     * Build the final argument list for the callable.
+     *
+     * Binding the caller's $provided arguments against the declared $parameters:
+     * integer keys are POSITIONAL BY ORDER (the key values themselves are
+     * ignored — [5 => 'x'] feeds the first parameter, and the sparse keys left
+     * behind by array_filter() still line up), string keys are NAMED, and
+     * parameters the caller did not provide are auto-wired from the container
+     * (then their default value). References into $provided are preserved so
      * by-reference parameters keep mutating the caller's variables; leftover
      * arguments spill into a trailing variadic, exactly like a native call.
      *

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Projek\Callable;
 
 use Closure;
-use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use ReflectionClass;
@@ -47,8 +46,18 @@ final class Resolver implements ResolverInterface
                 return [$class, $method];
             }
 
-            // Non-static (or unknown) target: resolve an instance.
-            $callable[0] = $this->resolveFromContainer($class);
+            try {
+                // Non-static (or unknown) target: resolve an instance.
+                $callable[0] = $this->container->get($class);
+            } catch (NotFoundExceptionInterface $err) {
+                if (! \class_exists($class)) {
+                    // Neither registered nor an existing class: name the entry so the
+                    // typo (missing namespace, wrong FQCN) is obvious at a glance.
+                    throw UnresolvableException::invalidCallable($class, $err);
+                }
+
+                $callable[0] = $this->createInstance($class);
+            }
         }
 
         // __call()-based "methods" pass is_callable() but have no real method to
@@ -66,7 +75,15 @@ final class Resolver implements ResolverInterface
         // (Handler reflects __invoke() on it). Class-strings without __invoke()
         // are not callables and fall through to the exception below.
         if (\is_string($callable) && \class_exists($callable) && \method_exists($callable, '__invoke')) {
-            $callable = $this->resolveFromContainer($callable);
+            try {
+                $callable = $this->container->get($callable);
+            } catch (NotFoundExceptionInterface $err) {
+                if (! \class_exists($callable)) {
+                    throw UnresolvableException::invalidCallable($callable, $err);
+                }
+
+                $callable = $this->createInstance($callable);
+            }
         }
 
         if ($callable instanceof Closure || \is_callable($callable)) {
@@ -90,8 +107,6 @@ final class Resolver implements ResolverInterface
             return [];
         }
 
-        $name = $param->getName();
-
         // By-reference parameters must be provided by the caller: a value pulled
         // from the container (or a default) is a temporary — PHP lets the call
         // succeed, but every write through the reference is discarded when the
@@ -106,18 +121,19 @@ final class Resolver implements ResolverInterface
         $notFound = null;
 
         if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
-            // Class-typed parameter: fulfil it from the container.
+            // Class-typed parameter: fulfil it from the container. Only
+            // NotFoundExceptionInterface is handled: an absent entry is a
+            // resolution outcome that falls through to the default chain below.
+            // Any other ContainerExceptionInterface (broken factory, circular
+            // reference) is the container orchestrator's failure, not ours — it
+            // propagates untouched so third parties catch exactly what their
+            // container threw.
             $typeName = $type->getName();
 
             try {
                 return $this->container->get($typeName);
             } catch (NotFoundExceptionInterface $err) {
                 $notFound = $err;
-            } catch (ContainerExceptionInterface $err) {
-                // A generic PSR-11 failure is a real error (broken factory,
-                // circular reference), not "entry missing" — wrap it instead of
-                // quietly falling back to a default.
-                throw new DependencyException($param, $typeName, $err);
             }
         } elseif ($type !== null && ! $type instanceof ReflectionNamedType) {
             // Union/intersection types are deliberately NOT resolved from the
@@ -137,44 +153,16 @@ final class Resolver implements ResolverInterface
         // must keep its own default instead of being shadowed by an unrelated
         // container entry registered under that name.
         if ($type === null) {
+            // Same contract as the class-typed lookup above: NotFound falls
+            // through, any other container failure propagates untouched.
             try {
-                return $this->container->get($name);
+                return $this->container->get($param->getName());
             } catch (NotFoundExceptionInterface $err) {
                 $notFound = $err;
-            } catch (ContainerExceptionInterface $err) {
-                throw new DependencyException($param, null, $err);
             }
         }
 
         throw new DependencyException($param, $typeName, $notFound);
-    }
-
-    /**
-     * @template T of object
-     *
-     * @param  string|class-string<T>  $entry
-     * @return ($entry is class-string<T> ? T : object)
-     *
-     * @throws UnresolvableException
-     */
-    private function resolveFromContainer(string $entry)
-    {
-        try {
-            return $this->container->get($entry);
-        } catch (NotFoundExceptionInterface $err) {
-            if (\class_exists($entry)) {
-                return $this->createInstance($entry);
-            }
-
-            // Neither registered nor an existing class: name the entry so the
-            // typo (missing namespace, wrong FQCN) is obvious at a glance.
-            throw UnresolvableException::invalidCallable($entry, $err);
-        } catch (ContainerExceptionInterface $err) {
-            // PSR-11 permits get() to throw a plain ContainerExceptionInterface
-            // — wrap it so callers only ever deal in this library's exceptions
-            // (ResolverInterface documents @throws UnresolvableException).
-            throw UnresolvableException::invalidContainerEntry($entry, $err);
-        }
     }
 
     /**

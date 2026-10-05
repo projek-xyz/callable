@@ -46,20 +46,6 @@ final class UnresolvableException extends InvalidArgumentException
     }
 
     /**
-     * The container failed to provide the entry for a reason other than
-     * "not found" (broken factory, circular reference). The foreign cause is
-     * chained as previous so it stays visible instead of masquerading as an
-     * unresolvable callable.
-     */
-    public static function invalidContainerEntry(string $entry, Throwable $previous): static
-    {
-        return new self(
-            \sprintf('Failed to resolve %s: %s', $entry, $previous->getMessage()),
-            $previous
-        );
-    }
-
-    /**
      * The entry names a class-like that can never be instantiated (enum,
      * abstract class): the instantiate-and-inject path is impossible by
      * definition, and reflection would leak a raw ReflectionException.
