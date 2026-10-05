@@ -86,7 +86,7 @@ final class UnresolvableException extends InvalidArgumentException
      * Render a scalar, null or array as a short message fragment — strings and
      * objects are handled by invalidCallable() before describe() is reached.
      */
-    private static function describe(mixed $value): string
+    private static function describe(mixed $value): ?string
     {
         if (\is_scalar($value) || $value === null) {
             return \var_export($value, true);
