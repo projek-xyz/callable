@@ -47,9 +47,50 @@ final class Handler
     public function handle(array|callable|object|string $callable, array $params = [])
     {
         $callable = $this->resolver->resolveCallable($callable);
-        $parameters = $this->createReflection($callable)->getParameters();
 
-        $normalized = $this->normalizeArguments($params);
+        $args = $this->buildArguments(
+            $this->createReflection($callable)->getParameters(),
+            $params
+        );
+
+        // Without a variadic, extra positional arguments are silently dropped —
+        // native does the same for userland functions.
+        return call_user_func_array($callable, $args);
+    }
+
+    /**
+     * Build the final argument list for the callable, binding the caller's
+     * $provided arguments against the declared $parameters: integer keys are
+     * POSITIONAL BY ORDER (the key values themselves are ignored — [5 => 'x']
+     * feeds the first parameter, and the sparse keys left behind by
+     * array_filter() still line up), string keys are NAMED, and parameters
+     * the caller did not provide are auto-wired from the container (then
+     * their default value). References into $provided are preserved so
+     * by-reference parameters keep mutating the caller's variables; leftover
+     * arguments spill into a trailing variadic, exactly like a native call.
+     *
+     * @throws Error If $provided breaks native argument rules (ordering, overwrite, unknown named).
+     * @throws DependencyException If a parameter cannot be auto-wired from the container.
+     */
+    private function buildArguments(array $parameters, array $provided): array
+    {
+        $normalized = [];
+        $seenNamed = false;
+
+        foreach ($provided as $key => &$value) {
+            if (is_int($key)) {
+                if ($seenNamed) {
+                    throw new Error('Cannot use positional argument after named argument');
+                }
+
+                $normalized[] = &$value;
+            } else {
+                $seenNamed = true;
+                $normalized[$key] = &$value;
+            }
+        }
+
+        unset($value);
 
         $variadic = null;
         $declared = [];
@@ -128,42 +169,7 @@ final class Handler
             unset($value);
         }
 
-        // Without a variadic, extra positional arguments are silently dropped —
-        // native does the same for userland functions.
-        return call_user_func_array($callable, $args);
-    }
-
-    /**
-     * Normalise the caller's arguments to native semantics: integer keys are
-     * POSITIONAL BY ORDER (the key values themselves are ignored — [5 => 'x']
-     * feeds the first parameter, and the sparse keys left behind by
-     * array_filter() still line up), string keys are NAMED. References into
-     * $params are preserved so by-reference parameters keep mutating the
-     * caller's variables.
-     *
-     * @throws Error If a positional argument follows a named one.
-     */
-    private function normalizeArguments(array $params): array
-    {
-        $normalized = [];
-        $seenNamed = false;
-
-        foreach ($params as $key => &$value) {
-            if (is_int($key)) {
-                if ($seenNamed) {
-                    throw new Error('Cannot use positional argument after named argument');
-                }
-
-                $normalized[] = &$value;
-            } else {
-                $seenNamed = true;
-                $normalized[$key] = &$value;
-            }
-        }
-
-        unset($value);
-
-        return $normalized;
+        return $args;
     }
 
     /**

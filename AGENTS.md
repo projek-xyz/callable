@@ -44,7 +44,7 @@ vendor/           # Composer dependencies
 ### `Handler`
 - **Entry point** for invoking callables with dependency injection
 - Constructor accepts `Psr\Container\ContainerInterface`
-- `handle($callable, $params)` resolves the callable via `Resolver`, normalizes `$params` via `normalizeArguments()` (see below), binds provided arguments exclusively in `Handler` (position → named), auto-wires anything the caller did not provide, then invokes
+- `handle($callable, $params)` resolves the callable via `Resolver`, then builds the full argument list via `buildArguments()` (see below): provided arguments bind exclusively in `Handler` (position → named), anything the caller did not provide is auto-wired from the container, then invokes
 - Argument binding mirrors native semantics:
   - Integer keys are **positional by order** — the key values are ignored (`[5 => 'x']` feeds the first parameter; sparse keys from `array_filter()` still line up)
   - String keys are **named arguments** and bind by parameter name
