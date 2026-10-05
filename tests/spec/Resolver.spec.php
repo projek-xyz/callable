@@ -5,9 +5,8 @@ declare(strict_types=1);
 use Projek\Callable\DependencyException;
 use Projek\Callable\Resolver;
 use Projek\Callable\UnresolvableException;
-use Projek\Container;
 use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\ContainerInterface;
+use Stubs\FakeContainer;
 use Stubs\Invokable;
 use Stubs\Registered;
 use Stubs\Status;
@@ -21,25 +20,16 @@ use function Kahlan\given;
 use function Kahlan\it;
 
 describe(Resolver::class, function () {
-    $container = new Container([
+    $container = new FakeContainer([
         Registered::class => fn () => new Registered,
     ]);
 
-    // A PSR-11 container that fails with a *generic* ContainerExceptionInterface
-    // (not NotFoundExceptionInterface) — PSR-11 explicitly allows this for broken
+    // PSR-11 explicitly allows get() to fail with a *generic*
+    // ContainerExceptionInterface (not NotFoundExceptionInterface) — for broken
     // factories, circular references, etc.
-    $brokenContainer = fn () => new class implements ContainerInterface
-    {
-        public function get(string $id): mixed
-        {
-            throw new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {};
-        }
-
-        public function has(string $id): bool
-        {
-            return false;
-        }
-    };
+    $brokenContainer = fn () => new FakeContainer(
+        failWith: new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {},
+    );
 
     given('r', fn () => new Resolver($container));
 
@@ -302,7 +292,7 @@ describe(Resolver::class, function () {
         // by bare parameter name. Pinning this down because it is the mechanism that
         // makes the name/type collisions below possible — and because it is currently
         // undocumented behaviour (AGENTS.md only mentions type-hints).
-        $named = new Container([
+        $named = new FakeContainer([
             'registered' => fn () => 'injected-by-name',
         ]);
         $param = (new ReflectionFunction(fn ($registered) => $registered))->getParameters()[0];
@@ -361,7 +351,7 @@ describe(Resolver::class, function () {
         // (here: 'count') overrides the developer's own default — and a wrong-typed
         // entry turns a working callable into a TypeError. For built-in-typed
         // parameters the default should win over name-based lookup.
-        $counting = new Container([
+        $counting = new FakeContainer([
             'count' => fn () => 7,
         ]);
         $param = (new ReflectionFunction(fn (int $count = 3) => $count))->getParameters()[0];

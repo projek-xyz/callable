@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "067aa34b432f5be4dd081068c41918c4",
+    "content-hash": "ac9d084648f78eac681d072f81a7b213",
     "packages": [
         {
             "name": "psr/container",
@@ -189,118 +189,6 @@
                 "source": "https://github.com/laravel/pint"
             },
             "time": "2026-09-10T10:47:55+00:00"
-        },
-        {
-            "name": "projek-xyz/container",
-            "version": "v1.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/projek-xyz/container.git",
-                "reference": "1638877ce53dfbc744dcbcf5ad09f4f8845b0c73"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/projek-xyz/container/zipball/1638877ce53dfbc744dcbcf5ad09f4f8845b0c73",
-                "reference": "1638877ce53dfbc744dcbcf5ad09f4f8845b0c73",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=8.0",
-                "psr/container": "^2.0",
-                "psr/event-dispatcher": "^1.0"
-            },
-            "provide": {
-                "psr/container-implementation": "^2.0"
-            },
-            "require-dev": {
-                "kahlan/kahlan": "^6.1",
-                "squizlabs/php_codesniffer": "^4.0"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Projek\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Fery Wardiyanto",
-                    "email": "ferywardiyanto@gmail.com"
-                }
-            ],
-            "description": "a dead-simple PSR-11 psr/container implementation with flexible service registration",
-            "keywords": [
-                "PSR-11",
-                "container",
-                "dependency injection",
-                "di",
-                "psr container"
-            ],
-            "support": {
-                "issues": "https://github.com/projek-xyz/container/issues",
-                "source": "https://github.com/projek-xyz/container"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/sponsors/feryardiant",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-05-16T12:34:19+00:00"
-        },
-        {
-            "name": "psr/event-dispatcher",
-            "version": "1.0.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/php-fig/event-dispatcher.git",
-                "reference": "dbefd12671e8a14ec7f180cab83036ed26714bb0"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/event-dispatcher/zipball/dbefd12671e8a14ec7f180cab83036ed26714bb0",
-                "reference": "dbefd12671e8a14ec7f180cab83036ed26714bb0",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=7.2.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.0.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Psr\\EventDispatcher\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "PHP-FIG",
-                    "homepage": "http://www.php-fig.org/"
-                }
-            ],
-            "description": "Standard interfaces for event handling.",
-            "keywords": [
-                "events",
-                "psr",
-                "psr-14"
-            ],
-            "support": {
-                "issues": "https://github.com/php-fig/event-dispatcher/issues",
-                "source": "https://github.com/php-fig/event-dispatcher/tree/1.0.0"
-            },
-            "time": "2019-01-08T18:20:26+00:00"
         }
     ],
     "aliases": [],

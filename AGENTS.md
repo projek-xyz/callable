@@ -31,6 +31,10 @@ tests/
     Invokable.php       # Class with an __invoke() method
     StaticOnly.php      # Class with a static method and constructor dependencies
     Status.php          # Backed enum used for default-value scenarios
+    Variadic.php        # Class with a variadic constructor and run() method
+    TypedVariadic.php   # Class with a typed (string) variadic constructor and parts() method
+    FakeContainer.php   # In-memory PSR-11 container double (memoizing, failure-injectable)
+    NotFound.php        # PSR-11 NotFoundExceptionInterface thrown by FakeContainer
   config.php      # Kahlan config (coverage, stubs dir)
 vendor/           # Composer dependencies
 ```
@@ -69,7 +73,7 @@ vendor/           # Composer dependencies
 - `createInstance($entry)` — `ReflectionClass::newInstanceArgs()` for unregistered classes; non-instantiable entries (interfaces, enums, abstracts) throw `UnresolvableException`
 
 ### `DependencyException` / `UnresolvableException`
-- `DependencyException` — thrown when a parameter cannot be resolved; structured public constructor (`name`, `position`, the container exception as `previous`, and an optional `detail` appended to the message, used by the by-reference guard). Matching static factories are parked/not requested yet.
+- `DependencyException` — thrown when a parameter cannot be resolved; structured public constructor (`name`, `position`, an optional `detail` appended to the message — used by the by-reference guard — and the container exception as `previous`). Matching static factories are parked/not requested yet.
 - `UnresolvableException` — thrown when a callable string/array cannot be resolved at all; **constructed only via named static factories** (the constructor is private, so every throw site must declare WHY):
   - `invalidCallable($callable, ?Throwable $previous = null)` — not (and cannot become) a callable: scalar, plain class-string, malformed array, private-method pair, non-`__invoke` object; message `<input> is not resolvable`
   - `invalidContainerEntry(string $entry, Throwable $previous)` — `get()` failed with a non-NotFound `ContainerExceptionInterface` (broken factory, circular reference); message `Failed to resolve <entry>: <cause>`
@@ -97,6 +101,7 @@ vendor/           # Composer dependencies
 
 - Test framework: **Kahlan** (v6.x)
 - Spec files live in `tests/spec/` and use `describe/it/expect` syntax
+- Spec names start with a lowercase `should` (e.g. `it('should …')`), not `Should`
 - Stub classes for container lookups live in `tests/stubs/`
 - Run all tests with `composer spec`
 - CI runs tests on PHP 8.4–8.5 matrix (`.github/workflows/tests.yml`)

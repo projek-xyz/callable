@@ -7,10 +7,9 @@ use Projek\Callable\Handler;
 use Projek\Callable\Resolver;
 use Projek\Callable\ResolverInterface;
 use Projek\Callable\UnresolvableException;
-use Projek\Container;
 use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\ContainerInterface;
 use Stubs\Dynamic;
+use Stubs\FakeContainer;
 use Stubs\Invokable;
 use Stubs\Registered;
 use Stubs\Unregistered;
@@ -20,7 +19,7 @@ use function Kahlan\expect;
 use function Kahlan\it;
 
 describe(Handler::class, function () {
-    $container = new Container([
+    $container = new FakeContainer([
         Registered::class => fn () => new Registered,
     ]);
 
@@ -28,7 +27,7 @@ describe(Handler::class, function () {
     // lets specs drive createReflection()'s defensive guards, which the bundled
     // Resolver can never reach (it rejects shorthand strings and __call() pairs
     // inside resolveCallable() first).
-    $fixedResolver = fn (mixed $resolved) => new Container([
+    $fixedResolver = fn (mixed $resolved) => new FakeContainer([
         ResolverInterface::class => fn () => new class($resolved) implements ResolverInterface
         {
             public function __construct(private mixed $resolved)
@@ -53,7 +52,7 @@ describe(Handler::class, function () {
         // knows nothing about this library's ResolverInterface, so the constructor
         // must silently substitute the bundled Resolver — otherwise Handler is
         // unusable without extra wiring.
-        $handler = new Handler(new Container([]));
+        $handler = new Handler(new FakeContainer);
 
         expect($handler->handle(fn () => 'fallback-ok'))->toBe('fallback-ok');
     });
@@ -62,7 +61,7 @@ describe(Handler::class, function () {
         // When an application does bind ResolverInterface (e.g. a decorated or
         // extended resolver), the constructor's happy path must use that instance
         // instead of the fallback — this is the try-block branch of __construct().
-        $bound = new Container([]);
+        $bound = new FakeContainer;
         $bound->set(ResolverInterface::class, fn () => new Resolver($bound));
 
         $handler = new Handler($bound);
@@ -75,18 +74,9 @@ describe(Handler::class, function () {
         // ContainerExceptionInterface signals a real failure (broken factory, circular
         // reference) that must not be swallowed by quietly substituting another
         // resolver, or the misconfiguration would be discovered much later.
-        $broken = new class implements ContainerInterface
-        {
-            public function get(string $id): mixed
-            {
-                throw new class('resolver factory exploded') extends RuntimeException implements ContainerExceptionInterface {};
-            }
-
-            public function has(string $id): bool
-            {
-                return false;
-            }
-        };
+        $broken = new FakeContainer(
+            failWith: new class('resolver factory exploded') extends RuntimeException implements ContainerExceptionInterface {},
+        );
 
         $error = null;
         try {
@@ -103,7 +93,7 @@ describe(Handler::class, function () {
         // The typed $resolver property turns it into a TypeError during construction —
         // loud and early beats half-working invocation later. (If a friendlier
         // exception is preferred, this documents the current fail-fast contract.)
-        $wrong = new Container([
+        $wrong = new FakeContainer([
             ResolverInterface::class => fn () => new stdClass,
         ]);
 
@@ -334,7 +324,7 @@ describe(Handler::class, function () {
         // so a container entry called 'count' silently replaces the callable's own
         // default (and a wrong-typed entry explodes with a TypeError). The default
         // written by the developer must not be shadowed by an unrelated entry.
-        $collision = new Container([
+        $collision = new FakeContainer([
             'count' => fn () => 7,
         ]);
         $handler = new Handler($collision);
