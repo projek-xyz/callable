@@ -1,10 +1,10 @@
 [![Version](https://img.shields.io/packagist/v/projek-xyz/callable?style=flat-square)](https://packagist.org/packages/projek-xyz/callable)
-[![Lisence](https://img.shields.io/github/license/projek-xyz/callable?style=flat-square)](https://github.com/projek-xyz/callable/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/projek-xyz/callable?style=flat-square)](https://github.com/projek-xyz/callable/blob/main/LICENSE)
 [![Actions Status](https://img.shields.io/github/actions/workflow/status/projek-xyz/callable/tests.yml?branch=main&style=flat-square)](https://github.com/projek-xyz/callable/actions)
 
-# Project Callable
+# Auto-wire and invoke any callable through PSR-11
 
-Generic callable resolver and handler library
+Generic callable resolver and handler library for PHP.
 
 ## Installation
 
