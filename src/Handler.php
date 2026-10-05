@@ -16,9 +16,8 @@ final class Handler
 {
     private ResolverInterface $resolver;
 
-    public function __construct(
-        private ContainerInterface $container
-    ) {
+    public function __construct(ContainerInterface $container)
+    {
         try {
             $this->resolver = $container->get(ResolverInterface::class);
         } catch (NotFoundExceptionInterface) {
