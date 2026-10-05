@@ -9,6 +9,7 @@ use Psr\Container\ContainerExceptionInterface;
 use Stubs\FakeContainer;
 use Stubs\Invokable;
 use Stubs\Registered;
+use Stubs\StaticOnly;
 use Stubs\Status;
 use Stubs\TypedVariadic;
 use Stubs\Unregistered;
@@ -279,12 +280,23 @@ describe(Resolver::class, function () {
     it('should throw DependencyException naming the type and position', function () {
         // When a required dependency is missing this is the public error users see:
         // it must name the type, the parameter position, and chain the container
-        // exception as previous for debugging. DependencyException has zero coverage
-        // so far.
+        // exception as previous for debugging.
         $param = (new ReflectionFunction(fn (Unregistered $u) => $u))->getParameters()[0];
 
         expect(fn () => $this->r->resolveParameter($param))
-            ->toThrow(new DependencyException('Stubs\Unregistered', 0));
+            ->toThrow(new DependencyException($param, 'Stubs\Unregistered'));
+    });
+
+    it('should label method parameters Class::method like native errors', function () {
+        // Native TypeErrors lead with the declaring callable
+        // ("A::b(): Argument #1 ..."): for a method's parameter the label must
+        // carry the class, not just the bare method name, or the message points
+        // at the wrong thing. StaticOnly's constructor dependency cannot be
+        // auto-wired, making its first parameter fail resolution.
+        $param = (new ReflectionMethod(StaticOnly::class, '__construct'))->getParameters()[0];
+
+        expect(fn () => $this->r->resolveParameter($param))
+            ->toThrow(new DependencyException($param, 'Stubs\Unregistered'));
     });
 
     it('should fall back to the parameter name when there is no class type', function () {
@@ -322,13 +334,14 @@ describe(Resolver::class, function () {
     });
 
     it('should name the union type, not the parameter, in DependencyException', function () {
-        // When union resolution fails the diagnostic must point at the type the
-        // developer wrote, not at an arbitrary parameter name — "Dependency $dep at
-        // position 0" sends users hunting for the wrong thing.
+        // When union resolution fails the diagnostic must still point at the
+        // type the developer wrote: the bare "($dep) is not resolvable" says
+        // what failed but not what was declared, so the union goes in the
+        // detail suffix.
         $param = (new ReflectionFunction(fn (Registered|Unregistered $dep) => $dep))->getParameters()[0];
 
         expect(fn () => $this->r->resolveParameter($param))
-            ->toThrow(new DependencyException('Stubs\Registered|Stubs\Unregistered', 0));
+            ->toThrow(new DependencyException($param, 'Stubs\Registered|Stubs\Unregistered'));
     });
 
     it('should refuse to resolve a by-reference parameter from the container', function () {
@@ -342,7 +355,7 @@ describe(Resolver::class, function () {
         }))->getParameters()[0];
 
         expect(fn () => $this->r->resolveParameter($param))
-            ->toThrow(new DependencyException('out', 0, 'by-reference parameter $out must be provided explicitly'));
+            ->toThrow(new DependencyException($param, 'by-reference parameter must be provided explicitly'));
     });
 
     it('should not let a container entry shadow a built-in default', function () {
@@ -437,7 +450,7 @@ describe(Resolver::class, function () {
         $param = (new ReflectionFunction(fn ($missing) => $missing))->getParameters()[0];
 
         expect(fn () => $this->r->resolveParameter($param))
-            ->toThrow(new DependencyException('missing', 0));
+            ->toThrow(new DependencyException($param));
     });
 
     it('should wrap generic container failures for untyped parameters', function () use ($brokenContainer) {
@@ -455,6 +468,6 @@ describe(Resolver::class, function () {
         }
 
         expect($error)->toBeAnInstanceOf(DependencyException::class);
-        expect($error->getMessage())->toBe('Dependency service at position 0 is not resolvable');
+        expect($error->getMessage())->toBe('{closure}(): Argument #1 ($service) is not resolvable');
     });
 });

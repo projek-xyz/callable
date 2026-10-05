@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class Dynamic
+final class Dynamic
 {
     /**
      * Magic methods make every method name pass is_callable(), mirroring real-world

@@ -10,7 +10,7 @@ use RuntimeException;
  * Its message is never asserted — specs pin the exception *types* and the
  * library's own messages, not the container's wording.
  */
-class NotFound extends RuntimeException implements NotFoundExceptionInterface
+final class NotFound extends RuntimeException implements NotFoundExceptionInterface
 {
     public function __construct(string $id)
     {

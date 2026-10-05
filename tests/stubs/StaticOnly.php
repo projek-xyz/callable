@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class StaticOnly
+final class StaticOnly
 {
     /**
      * The constructor dependency makes instantiation fail when the container

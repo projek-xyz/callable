@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class Registered
+final class Registered
 {
     public function bar()
     {

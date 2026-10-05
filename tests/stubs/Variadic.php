@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class Variadic
+final class Variadic
 {
     private array $args;
 

@@ -90,7 +90,6 @@ final class Resolver implements ResolverInterface
             return [];
         }
 
-        $position = $param->getPosition();
         $name = $param->getName();
 
         // By-reference parameters must be provided by the caller: a value pulled
@@ -99,9 +98,7 @@ final class Resolver implements ResolverInterface
         // call returns, so an output-style callable would silently produce
         // nothing.
         if ($param->isPassedByReference()) {
-            throw new DependencyException($name, $position, \sprintf(
-                'by-reference parameter $%s must be provided explicitly', $name
-            ));
+            throw new DependencyException($param, 'by-reference parameter must be provided explicitly');
         }
 
         $type = $param->getType();
@@ -120,7 +117,7 @@ final class Resolver implements ResolverInterface
                 // A generic PSR-11 failure is a real error (broken factory,
                 // circular reference), not "entry missing" — wrap it instead of
                 // quietly falling back to a default.
-                throw new DependencyException($typeName, $position, null, $err);
+                throw new DependencyException($param, $typeName, $err);
             }
         } elseif ($type !== null && ! $type instanceof ReflectionNamedType) {
             // Union/intersection types are deliberately NOT resolved from the
@@ -145,11 +142,11 @@ final class Resolver implements ResolverInterface
             } catch (NotFoundExceptionInterface $err) {
                 $notFound = $err;
             } catch (ContainerExceptionInterface $err) {
-                throw new DependencyException($name, $position, null, $err);
+                throw new DependencyException($param, null, $err);
             }
         }
 
-        throw new DependencyException($typeName ?? $name, $position, null, $notFound);
+        throw new DependencyException($param, $typeName, $notFound);
     }
 
     /**

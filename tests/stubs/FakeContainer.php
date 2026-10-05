@@ -16,7 +16,7 @@ use Psr\Container\ContainerInterface;
  *   modelling PSR-11's broken-factory/circular-reference case as distinct
  *   from a missing entry (which throws NotFound instead).
  */
-class FakeContainer implements ContainerInterface
+final class FakeContainer implements ContainerInterface
 {
     /** @var array<string, callable|mixed> */
     private array $entries;

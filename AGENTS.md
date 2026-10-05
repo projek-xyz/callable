@@ -73,7 +73,7 @@ vendor/           # Composer dependencies
 - `createInstance($entry)` — `ReflectionClass::newInstanceArgs()` for unregistered classes; non-instantiable entries (interfaces, enums, abstracts) throw `UnresolvableException`
 
 ### `DependencyException` / `UnresolvableException`
-- `DependencyException` — thrown when a parameter cannot be resolved; structured public constructor (`name`, `position`, an optional `detail` appended to the message — used by the by-reference guard — and the container exception as `previous`). Matching static factories are parked/not requested yet.
+- `DependencyException` — thrown when a parameter cannot be resolved; constructed from the failing `ReflectionParameter` itself plus an optional `detail` appended to the message (used by the by-reference guard and for class/union type names) and the container exception as `previous`. The message mirrors native `TypeError` phrasing: `{callable}(): Argument #{1-based position} ($name) is not resolvable[: detail]`, where `{callable}` is `Class::method` for methods, the plain function name for functions, or `{closure}` for anonymous functions (normalized — reflection can report a class-bound closure as `Scope::{closure:file:line}`). Matching static factories are parked/not requested yet.
 - `UnresolvableException` — thrown when a callable string/array cannot be resolved at all; **constructed only via named static factories** (the constructor is private, so every throw site must declare WHY):
   - `invalidCallable($callable, ?Throwable $previous = null)` — not (and cannot become) a callable: scalar, plain class-string, malformed array, private-method pair, non-`__invoke` object; message `<input> is not resolvable`
   - `invalidContainerEntry(string $entry, Throwable $previous)` — `get()` failed with a non-NotFound `ContainerExceptionInterface` (broken factory, circular reference); message `Failed to resolve <entry>: <cause>`
@@ -113,7 +113,8 @@ The library is designed to work with any PSR-11 compatible container. The `Handl
 ## Conventions to Note
 
 - All source files use `declare(strict_types=1)`, **except** `*Exception.php` and `*Interface.php` (pattern-based exemption — they carry no calls whose coercion the flag could change; see `Conventions.spec.php`)
-- Throw `UnresolvableException` only through its named static factories (`invalidCallable()`, `invalidContainerEntry()`, `notInstantiable()`, `methodNotFound()`) — never `new`, the constructor is private; `DependencyException` keeps its structured public constructor
+- Throw `UnresolvableException` only through its named static factories (`invalidCallable()`, `invalidContainerEntry()`, `notInstantiable()`, `methodNotFound()`) — never `new`, the constructor is private; `DependencyException` keeps its public constructor taking the `ReflectionParameter`
+- Every class is declared `final` (source **and** test stubs; interfaces and enums excepted) — the library is not designed for inheritance
 - Files are namespaced under `Projek\Callable` (or `Stubs` for test helpers)
 - The `Resolver` is the central piece — keep its logic consistent: resolve → instantiate → resolve params
 - When adding new callable types, modify `Resolver::resolveCallable()` and keep the method chain predictable

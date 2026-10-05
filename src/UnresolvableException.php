@@ -5,7 +5,7 @@ namespace Projek\Callable;
 use InvalidArgumentException;
 use Throwable;
 
-class UnresolvableException extends InvalidArgumentException
+final class UnresolvableException extends InvalidArgumentException
 {
     /**
      * Construction is routed through the named factories below: each failure
@@ -42,7 +42,7 @@ class UnresolvableException extends InvalidArgumentException
             $message = \sprintf('%s is not resolvable', self::describe($callable));
         }
 
-        return new static($message, $previous);
+        return new self($message, $previous);
     }
 
     /**
@@ -53,7 +53,7 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function invalidContainerEntry(string $entry, Throwable $previous): static
     {
-        return new static(
+        return new self(
             \sprintf('Failed to resolve %s: %s', $entry, $previous->getMessage()),
             $previous
         );
@@ -66,7 +66,7 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function notInstantiable(string $entry): static
     {
-        return new static(\sprintf('%s is not instantiable', $entry));
+        return new self(\sprintf('%s is not instantiable', $entry));
     }
 
     /**
@@ -75,7 +75,7 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function methodNotFound(string|object $class, string $method): static
     {
-        return new static(\sprintf(
+        return new self(\sprintf(
             'Method %s::%s() does not exist',
             \is_object($class) ? \get_class($class) : $class,
             $method

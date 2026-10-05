@@ -464,7 +464,26 @@ describe(Handler::class, function () {
         }
 
         expect($error)->toBeAnInstanceOf(DependencyException::class);
-        expect($error->getMessage())->toBe('Dependency one at position 0 is not resolvable');
+        expect($error->getMessage())->toBe('{closure}(): Argument #1 ($one) is not resolvable');
+    });
+
+    it('should surface the native-style argument label for a plain function', function () use ($container) {
+        // The message mirrors native TypeError phrasing — leading with the
+        // declaring function's name and the 1-BASED argument position — so a
+        // failing handle('myFunc') reads like the direct call it replaced:
+        // str_repeat's first parameter is a built-in type with no default and
+        // nothing to auto-wire, the same shape as the test.php scenario.
+        $handler = new Handler($container);
+
+        $error = null;
+        try {
+            $handler->handle('str_repeat');
+        } catch (Throwable $err) {
+            $error = $err;
+        }
+
+        expect($error)->toBeAnInstanceOf(DependencyException::class);
+        expect($error->getMessage())->toBe('str_repeat(): Argument #1 ($string) is not resolvable');
     });
 
     it('should refuse to auto-wire a by-reference parameter', function () use ($container) {
@@ -485,6 +504,6 @@ describe(Handler::class, function () {
 
         expect($error)->toBeAnInstanceOf(DependencyException::class);
         expect($error->getMessage())
-            ->toBe('Dependency out at position 0 is not resolvable: by-reference parameter $out must be provided explicitly');
+            ->toBe('{closure}(): Argument #1 ($out) is not resolvable: by-reference parameter must be provided explicitly');
     });
 });

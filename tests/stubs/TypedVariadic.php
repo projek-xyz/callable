@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class TypedVariadic
+final class TypedVariadic
 {
     private array $parts;
 

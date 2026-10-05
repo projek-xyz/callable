@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class Invokable
+final class Invokable
 {
     /**
      * Invokable objects are a common callable shape (middleware, handlers); the
