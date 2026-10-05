@@ -4,7 +4,7 @@
 
 # Auto-wire and invoke any callable through PSR-11
 
-Generic callable resolver and handler library for PHP.
+Resolve any callable through a PSR-11 container and invoke it with dependency injection — same semantics as native `call_user_func_array()`, except missing parameters auto-wire from the container instead of raising `ArgumentCountError`.
 
 ## Installation
 
