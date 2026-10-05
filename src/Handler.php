@@ -54,7 +54,7 @@ final class Handler
 
         // Without a variadic, extra positional arguments are silently dropped —
         // native does the same for userland functions.
-        return call_user_func_array($callable, $args);
+        return \call_user_func_array($callable, $args);
     }
 
     /**
@@ -77,7 +77,7 @@ final class Handler
         $seenNamed = false;
 
         foreach ($provided as $key => &$value) {
-            if (is_int($key)) {
+            if (\is_int($key)) {
                 if ($seenNamed) {
                     throw new Error('Cannot use positional argument after named argument');
                 }
@@ -108,7 +108,7 @@ final class Handler
         // declared parameter; only a trailing variadic may absorb them.
         if ($variadic === null) {
             foreach ($normalized as $key => $value) {
-                if (! is_int($key) && ! isset($declared[$key])) {
+                if (! \is_int($key) && ! isset($declared[$key])) {
                     throw new Error('Unknown named parameter $'.$key);
                 }
             }
@@ -125,17 +125,17 @@ final class Handler
             $position = $param->getPosition();
             $name = $param->getName();
 
-            if (array_key_exists($position, $normalized)) {
+            if (\array_key_exists($position, $normalized)) {
                 // Native throws when a named argument targets a parameter that a
                 // positional argument already filled — mirror that instead of
                 // silently preferring one of them.
-                if (array_key_exists($name, $normalized)) {
-                    throw new Error(sprintf('Named parameter $%s overwrites previous argument', $name));
+                if (\array_key_exists($name, $normalized)) {
+                    throw new Error(\sprintf('Named parameter $%s overwrites previous argument', $name));
                 }
 
                 $args[$position] = &$normalized[$position];
                 $consumed[$position] = true;
-            } elseif (array_key_exists($name, $normalized)) {
+            } elseif (\array_key_exists($name, $normalized)) {
                 // Named arguments bind by parameter name; the key must not also
                 // leak into a trailing variadic.
                 $args[$position] = &$normalized[$name];
@@ -158,7 +158,7 @@ final class Handler
                     continue;
                 }
 
-                if (is_int($key)) {
+                if (\is_int($key)) {
                     $args[] = &$value;
                 } else {
                     $args[$key] = &$value;
@@ -183,11 +183,11 @@ final class Handler
      */
     private function createReflection(array|callable|object|string $callable): ReflectionFunctionAbstract
     {
-        if ($callable instanceof Closure || \is_string($callable) && function_exists($callable)) {
+        if ($callable instanceof Closure || \is_string($callable) && \function_exists($callable)) {
             return new ReflectionFunction($callable);
         }
 
-        if (is_object($callable) && method_exists($callable, '__invoke')) {
+        if (\is_object($callable) && \method_exists($callable, '__invoke')) {
             $callable = [$callable, '__invoke'];
         }
 
@@ -202,7 +202,7 @@ final class Handler
         // implementations that keep such pairs. Malformed pairs cannot reach
         // here: resolveCallable(): callable only admits is_callable() values,
         // which always carry a string method.
-        if (! method_exists($class, $method)) {
+        if (! \method_exists($class, $method)) {
             throw UnresolvableException::methodNotFound($class, $method);
         }
 

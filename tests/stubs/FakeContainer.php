@@ -52,21 +52,21 @@ class FakeContainer implements ContainerInterface
             throw $this->failWith;
         }
 
-        if (array_key_exists($id, $this->resolved)) {
+        if (\array_key_exists($id, $this->resolved)) {
             return $this->resolved[$id];
         }
 
-        if (! array_key_exists($id, $this->entries)) {
+        if (! \array_key_exists($id, $this->entries)) {
             throw new NotFound($id);
         }
 
         $entry = $this->entries[$id];
 
-        return $this->resolved[$id] = is_callable($entry) ? $entry() : $entry;
+        return $this->resolved[$id] = \is_callable($entry) ? $entry() : $entry;
     }
 
     public function has(string $id): bool
     {
-        return array_key_exists($id, $this->entries);
+        return \array_key_exists($id, $this->entries);
     }
 }

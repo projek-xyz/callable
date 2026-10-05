@@ -13,7 +13,7 @@ class DependencyException extends RuntimeException
         ?string $detail = null,
         ?Throwable $previous = null,
     ) {
-        $message = sprintf('Dependency %s at position %d is not resolvable', $name, $position);
+        $message = \sprintf('Dependency %s at position %d is not resolvable', $name, $position);
 
         // Optional detail explains WHY the dependency cannot be resolved (e.g. a
         // by-reference parameter that must be provided explicitly) without

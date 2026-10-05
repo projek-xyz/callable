@@ -14,6 +14,6 @@ class NotFound extends RuntimeException implements NotFoundExceptionInterface
 {
     public function __construct(string $id)
     {
-        parent::__construct(sprintf('Entry "%s" is not found.', $id));
+        parent::__construct(\sprintf('Entry "%s" is not found.', $id));
     }
 }

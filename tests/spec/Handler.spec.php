@@ -428,6 +428,45 @@ describe(Handler::class, function () {
         expect($error->getMessage())->toBe('Unknown named parameter $foo');
     });
 
+    it('should let the engine throw TypeError for a mismatched argument type', function () use ($container) {
+        // handle() must not re-type-check arguments itself — the engine owns
+        // type checks at the invocation site, exactly like a direct strict call.
+        // This pins the weak-mode bug fix: an unqualified call_user_func_array()
+        // inside namespace Projek\Callable made PHP invoke in weak mode and
+        // silently coerce '2' to 2; the fully qualified call restores the native
+        // TypeError. Instance check only: the message embeds both the closure's
+        // file:line and src/Handler.php's line number, so it shifts with edits.
+        $handler = new Handler($container);
+
+        $error = null;
+        try {
+            $handler->handle(fn (int $n) => $n, ['2']);
+        } catch (Throwable $err) {
+            $error = $err;
+        }
+
+        expect($error)->toBeAnInstanceOf(TypeError::class);
+    });
+
+    it('should surface DependencyException when a required parameter cannot be auto-wired', function () use ($container) {
+        // Too few arguments is where the library deliberately diverges from
+        // native: auto-wiring REPLACES ArgumentCountError. When nothing can fill
+        // the parameter (built-in int type, no default, no container entry),
+        // the failure names the parameter and position instead of only saying
+        // "Too few arguments" — richer diagnostics for the same situation.
+        $handler = new Handler($container);
+
+        $error = null;
+        try {
+            $handler->handle(fn (int $one, int $two) => $one + $two);
+        } catch (Throwable $err) {
+            $error = $err;
+        }
+
+        expect($error)->toBeAnInstanceOf(DependencyException::class);
+        expect($error->getMessage())->toBe('Dependency one at position 0 is not resolvable');
+    });
+
     it('should refuse to auto-wire a by-reference parameter', function () use ($container) {
         // A container entry is a temporary: PHP lets the call succeed, but the
         // write through the reference lands on a value discarded when handle()

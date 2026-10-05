@@ -25,21 +25,21 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function invalidCallable(mixed $callable, ?Throwable $previous = null): static
     {
-        $callable = is_object($callable) ? get_class($callable) : $callable;
+        $callable = \is_object($callable) ? \get_class($callable) : $callable;
 
-        if (is_string($callable)) {
-            $message = sprintf('Instance of %s is not resolvable', $callable);
-        } elseif (is_array($callable) && isset($callable[0], $callable[1])) {
-            $message = sprintf(
+        if (\is_string($callable)) {
+            $message = \sprintf('Instance of %s is not resolvable', $callable);
+        } elseif (\is_array($callable) && isset($callable[0], $callable[1])) {
+            $message = \sprintf(
                 '%s::%s() is not resolvable',
-                is_object($callable[0]) ? get_class($callable[0]) : $callable[0],
+                \is_object($callable[0]) ? \get_class($callable[0]) : $callable[0],
                 $callable[1]
             );
         } else {
             // Scalars, null and malformed arrays (empty array, pair without a
             // method) match no branch above: every input must yield a
             // diagnosable message instead of an empty one.
-            $message = sprintf('%s is not resolvable', self::describe($callable));
+            $message = \sprintf('%s is not resolvable', self::describe($callable));
         }
 
         return new static($message, $previous);
@@ -54,7 +54,7 @@ class UnresolvableException extends InvalidArgumentException
     public static function invalidContainerEntry(string $entry, Throwable $previous): static
     {
         return new static(
-            sprintf('Failed to resolve %s: %s', $entry, $previous->getMessage()),
+            \sprintf('Failed to resolve %s: %s', $entry, $previous->getMessage()),
             $previous
         );
     }
@@ -66,7 +66,7 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function notInstantiable(string $entry): static
     {
-        return new static(sprintf('%s is not instantiable', $entry));
+        return new static(\sprintf('%s is not instantiable', $entry));
     }
 
     /**
@@ -75,9 +75,9 @@ class UnresolvableException extends InvalidArgumentException
      */
     public static function methodNotFound(string|object $class, string $method): static
     {
-        return new static(sprintf(
+        return new static(\sprintf(
             'Method %s::%s() does not exist',
-            is_object($class) ? get_class($class) : $class,
+            \is_object($class) ? \get_class($class) : $class,
             $method
         ));
     }
@@ -88,10 +88,10 @@ class UnresolvableException extends InvalidArgumentException
      */
     private static function describe(mixed $value): string
     {
-        if (is_scalar($value) || $value === null) {
-            return var_export($value, true);
+        if (\is_scalar($value) || $value === null) {
+            return \var_export($value, true);
         }
 
-        return gettype($value);
+        return \gettype($value);
     }
 }

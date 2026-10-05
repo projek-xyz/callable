@@ -27,8 +27,8 @@ final class Resolver implements ResolverInterface
     public function resolveCallable($callable): callable
     {
         // 'Class::method' string shorthand → pair form.
-        if (is_string($callable) && str_contains($callable, '::')) {
-            $callable = explode('::', $callable, 2);
+        if (\is_string($callable) && \str_contains($callable, '::')) {
+            $callable = \explode('::', $callable, 2);
         }
 
         // Static targets resolve to [Class::method] as-is: a static call never
@@ -37,13 +37,13 @@ final class Resolver implements ResolverInterface
         // dependencies the container cannot build) must not get in the way.
         // Uniform rule for the string and array pair forms.
         if (
-            is_array($callable) && count($callable) === 2
+            \is_array($callable) && \count($callable) === 2
             && isset($callable[0], $callable[1])
-            && is_string($callable[0]) && is_string($callable[1])
+            && \is_string($callable[0]) && \is_string($callable[1])
         ) {
             [$class, $method] = $callable;
 
-            if (class_exists($class) && method_exists($class, $method) && (new ReflectionMethod($class, $method))->isStatic()) {
+            if (\class_exists($class) && \method_exists($class, $method) && (new ReflectionMethod($class, $method))->isStatic()) {
                 return [$class, $method];
             }
 
@@ -55,9 +55,9 @@ final class Resolver implements ResolverInterface
         // reflect, so parameter type-hints could never be honoured — reject them
         // here with a diagnosable error instead of failing later in Handler.
         if (
-            is_array($callable) && isset($callable[0], $callable[1])
-            && is_object($callable[0]) && is_string($callable[1])
-            && ! method_exists($callable[0], $callable[1])
+            \is_array($callable) && isset($callable[0], $callable[1])
+            && \is_object($callable[0]) && \is_string($callable[1])
+            && ! \method_exists($callable[0], $callable[1])
         ) {
             throw UnresolvableException::methodNotFound($callable[0], $callable[1]);
         }
@@ -65,11 +65,11 @@ final class Resolver implements ResolverInterface
         // A bare class-string of an invokable class resolves to its instance
         // (Handler reflects __invoke() on it). Class-strings without __invoke()
         // are not callables and fall through to the exception below.
-        if (is_string($callable) && class_exists($callable) && method_exists($callable, '__invoke')) {
+        if (\is_string($callable) && \class_exists($callable) && \method_exists($callable, '__invoke')) {
             $callable = $this->resolveFromContainer($callable);
         }
 
-        if ($callable instanceof Closure || is_callable($callable)) {
+        if ($callable instanceof Closure || \is_callable($callable)) {
             /** @var callable */
             return $callable;
         }
@@ -99,7 +99,7 @@ final class Resolver implements ResolverInterface
         // call returns, so an output-style callable would silently produce
         // nothing.
         if ($param->isPassedByReference()) {
-            throw new DependencyException($name, $position, sprintf(
+            throw new DependencyException($name, $position, \sprintf(
                 'by-reference parameter $%s must be provided explicitly', $name
             ));
         }
@@ -165,7 +165,7 @@ final class Resolver implements ResolverInterface
         try {
             return $this->container->get($entry);
         } catch (NotFoundExceptionInterface $err) {
-            if (class_exists($entry)) {
+            if (\class_exists($entry)) {
                 return $this->createInstance($entry);
             }
 
@@ -200,7 +200,7 @@ final class Resolver implements ResolverInterface
             // the guard's [] back in would pack $args as [[]] (and raise a
             // TypeError for typed variadics) instead of the native zero-arg
             // construction. The variadic is always the last parameter.
-            array_filter(
+            \array_filter(
                 $ref->getConstructor()?->getParameters() ?: [],
                 fn ($param) => ! $param->isVariadic()
             )
