@@ -87,6 +87,8 @@ Failures are named the way PHP itself would name them:
   Method Greeter::nope() does not exist
   ```
 
+Container failures beyond a missing entry (a broken factory, a circular reference — PSR-11's generic `ContainerExceptionInterface`) are not translated: they propagate to you exactly as your container threw them, since only `NotFoundExceptionInterface` is the library's to handle.
+
 - **`TypeError`** — argument type mismatches surface PHP's own `TypeError` untouched: invocation runs natively under `strict_types`.
 
 ## License

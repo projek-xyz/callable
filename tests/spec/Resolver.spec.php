@@ -26,10 +26,11 @@ describe(Resolver::class, function () {
 
     // PSR-11 explicitly allows get() to fail with a *generic*
     // ContainerExceptionInterface (not NotFoundExceptionInterface) — for broken
-    // factories, circular references, etc.
-    $brokenContainer = fn () => new FakeContainer(
-        failWith: new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {},
-    );
+    // factories, circular references, etc. The instance is hoisted so specs can
+    // assert the exact object escapes unwrapped (Kahlan's toThrow matches the
+    // exception's concrete class).
+    $exploding = new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {};
+    $brokenContainer = fn () => new FakeContainer(failWith: $exploding);
 
     it('should throw error on non resolvable', function () use ($container) {
         // A function-name string that names no existing function must come back
@@ -196,18 +197,17 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::invalidCallable([Registered::class, 'hidden']));
     });
 
-    it('should wrap generic container failures in UnresolvableException', function () use ($brokenContainer) {
-        // PSR-11 lets get() throw a plain ContainerExceptionInterface, not only
-        // NotFoundExceptionInterface. resolveCallable() documents @throws
-        // UnresolvableException — raw container exceptions escaping break that
-        // contract and force callers to catch errors from a foreign package.
+    it('should let a generic container failure propagate from resolveCallable', function () use ($brokenContainer, $exploding) {
+        // Same contract as resolveParameter: only NotFoundExceptionInterface is
+        // ours to handle — a missing entry falls back to reflection
+        // instantiation. A generic ContainerExceptionInterface (broken factory,
+        // circular reference) is the orchestrator's failure and escapes as the
+        // exact instance the container threw, so third parties handle their
+        // own container.
         $resolver = new Resolver($brokenContainer());
 
         expect(fn () => $resolver->resolveCallable([Registered::class, 'bar']))
-            ->toThrow(UnresolvableException::invalidContainerEntry(
-                Registered::class,
-                new RuntimeException('Simulated resolution failure'),
-            ));
+            ->toThrow($exploding);
     });
 
     it('should ignore explicit arguments — binding them is Handler\'s job', function () use ($container) {
@@ -372,18 +372,31 @@ describe(Resolver::class, function () {
         expect($instance->parts())->toBe([]);
     });
 
-    it('should wrap generic container failures in DependencyException', function () use ($brokenContainer) {
-        // PSR-11 permits get() to throw a non-NotFound ContainerExceptionInterface
-        // for resolution failures. resolveParameter() used to let those escape raw
-        // even though its interface documents @throws DependencyException — callers
-        // relying on the documented exception type crashed on a foreign exception.
-        // Pin the wrap instead: callers get DependencyException naming the
-        // parameter and the type that could not be fetched.
+    it('should let a generic container failure propagate untouched', function () use ($brokenContainer, $exploding) {
+        // Only NotFoundExceptionInterface — "entry absent" — is ours to handle:
+        // it falls through the default chain. A generic ContainerExceptionInterface
+        // (broken factory, circular reference) is the container orchestrator's
+        // failure, not a resolution outcome, so it must escape as the very
+        // instance the container threw — wrapping it in DependencyException (as
+        // this used to) made callers catch foreign plumbing in the library's
+        // clothing.
         $resolver = new Resolver($brokenContainer());
         $param = (new ReflectionFunction(fn (stdClass $service) => $service))->getParameters()[0];
 
-        expect(fn () => $resolver->resolveParameter($param))
-            ->toThrow(new DependencyException($param, 'stdClass'));
+        expect(fn () => $resolver->resolveParameter($param))->toThrow($exploding);
+    });
+
+    it('should not let a default value mask a broken container entry', function () use ($brokenContainer, $exploding) {
+        // A broken entry must fail loudly even when the parameter has a default.
+        // NotFound falls through to the default (pinned by the ?Unregistered
+        // $u = null spec above); a generic failure does not — the container's
+        // own exception surfaces instead of the default quietly swallowing a
+        // wiring bug (broken factory, circular reference) as null deep in the
+        // caller's code.
+        $resolver = new Resolver($brokenContainer());
+        $param = (new ReflectionFunction(fn (?stdClass $service = null) => $service))->getParameters()[0];
+
+        expect(fn () => $resolver->resolveParameter($param))->toThrow($exploding);
     });
 
     it('should throw DependencyException when an untyped parameter is missing from the container', function () use ($container) {
@@ -397,14 +410,15 @@ describe(Resolver::class, function () {
             ->toThrow(new DependencyException($param));
     });
 
-    it('should wrap generic container failures for untyped parameters', function () use ($brokenContainer) {
-        // Same guarantee as the class-typed case, but through the bare-name
-        // lookup: a broken factory must still surface as DependencyException
-        // rather than the container's foreign exception type.
+    it('should let a generic container failure propagate through the name lookup', function () use ($brokenContainer, $exploding) {
+        // Same contract as the class-typed branch: the bare-name lookup handles
+        // only NotFound (falling through to DependencyException at the end) and
+        // lets any other container failure escape untouched — a broken factory
+        // must surface as the container's own exception, never be re-labelled
+        // as a resolution failure by the library.
         $resolver = new Resolver($brokenContainer());
         $param = (new ReflectionFunction(fn ($service) => $service))->getParameters()[0];
 
-        expect(fn () => $resolver->resolveParameter($param))
-            ->toThrow(new DependencyException($param));
+        expect(fn () => $resolver->resolveParameter($param))->toThrow($exploding);
     });
 });
