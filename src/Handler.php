@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Projek\Callable;
 
 use Closure;
+use Error;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use RdKafka\Exception;
 use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
@@ -16,9 +16,8 @@ final class Handler
 {
     private ResolverInterface $resolver;
 
-    public function __construct(
-        private ContainerInterface $container
-    ) {
+    public function __construct(ContainerInterface $container)
+    {
         try {
             $this->resolver = $container->get(ResolverInterface::class);
         } catch (NotFoundExceptionInterface) {
@@ -29,20 +28,147 @@ final class Handler
     /**
      * Invoke the given callable.
      *
+     * Binds $params like native call_user_func_array() — integer keys are
+     * positional by order, string keys are named arguments, unmatched named
+     * arguments spill into a trailing variadic — with one addition: parameters
+     * the caller did not provide are auto-wired from the container (then their
+     * default value) instead of raising ArgumentCountError.
+     *
      * @template T of object
      *
      * @param  array{class-string<T>|T,string}|callable|T|string  $callable
+     * @param  array<mixed>  $params
+     *
+     * @throws DependencyException If a required parameter cannot be resolved.
+     * @throws UnresolvableException If the callable itself cannot be resolved.
+     * @throws Error If $params violates native argument-ordering rules.
      */
     public function handle(array|callable|object|string $callable, array $params = [])
     {
         $callable = $this->resolver->resolveCallable($callable);
 
-        $params = array_map(
-            fn ($param) => $this->resolver->resolveParameter($param, $params),
-            $this->createReflection($callable)->getParameters()
+        $args = $this->buildArguments(
+            $this->createReflection($callable)->getParameters(),
+            $params
         );
 
-        return call_user_func_array($callable, $params);
+        // Without a variadic, extra positional arguments are silently dropped —
+        // native does the same for userland functions.
+        return \call_user_func_array($callable, $args);
+    }
+
+    /**
+     * Build the final argument list for the callable, binding the caller's
+     * $provided arguments against the declared $parameters: integer keys are
+     * POSITIONAL BY ORDER (the key values themselves are ignored — [5 => 'x']
+     * feeds the first parameter, and the sparse keys left behind by
+     * array_filter() still line up), string keys are NAMED, and parameters
+     * the caller did not provide are auto-wired from the container (then
+     * their default value). References into $provided are preserved so
+     * by-reference parameters keep mutating the caller's variables; leftover
+     * arguments spill into a trailing variadic, exactly like a native call.
+     *
+     * @throws Error If $provided breaks native argument rules (ordering, overwrite, unknown named).
+     * @throws DependencyException If a parameter cannot be auto-wired from the container.
+     */
+    private function buildArguments(array $parameters, array $provided): array
+    {
+        $normalized = [];
+        $seenNamed = false;
+
+        foreach ($provided as $key => &$value) {
+            if (\is_int($key)) {
+                if ($seenNamed) {
+                    throw new Error('Cannot use positional argument after named argument');
+                }
+
+                $normalized[] = &$value;
+            } else {
+                $seenNamed = true;
+                $normalized[$key] = &$value;
+            }
+        }
+
+        unset($value);
+
+        $variadic = null;
+        $declared = [];
+
+        foreach ($parameters as $param) {
+            if ($param->isVariadic()) {
+                $variadic = $param;
+
+                continue;
+            }
+
+            $declared[$param->getName()] = true;
+        }
+
+        // Native call_user_func_array() rejects named arguments that match no
+        // declared parameter; only a trailing variadic may absorb them.
+        if ($variadic === null) {
+            foreach ($normalized as $key => $value) {
+                if (! \is_int($key) && ! isset($declared[$key])) {
+                    throw new Error('Unknown named parameter $'.$key);
+                }
+            }
+        }
+
+        $args = [];
+        $consumed = [];
+
+        foreach ($parameters as $param) {
+            if ($param->isVariadic()) {
+                continue;
+            }
+
+            $position = $param->getPosition();
+            $name = $param->getName();
+
+            if (\array_key_exists($position, $normalized)) {
+                // Native throws when a named argument targets a parameter that a
+                // positional argument already filled — mirror that instead of
+                // silently preferring one of them.
+                if (\array_key_exists($name, $normalized)) {
+                    throw new Error(\sprintf('Named parameter $%s overwrites previous argument', $name));
+                }
+
+                $args[$position] = &$normalized[$position];
+                $consumed[$position] = true;
+            } elseif (\array_key_exists($name, $normalized)) {
+                // Named arguments bind by parameter name; the key must not also
+                // leak into a trailing variadic.
+                $args[$position] = &$normalized[$name];
+                $consumed[$name] = true;
+            } else {
+                // Not provided: auto-wire it (class type from the container →
+                // default → untyped name lookup) or throw.
+                $args[$position] = $this->resolver->resolveParameter($param);
+            }
+        }
+
+        if ($variadic !== null) {
+            // Splice every remaining argument into the variadic: leftover
+            // positional keys are renumbered from zero (so $args looks exactly
+            // like a native call: f('x', 'a', 'b') packs [...$args] as
+            // [0 => 'a', 1 => 'b'], never [1 => ..., 2 => ...]) and unmatched
+            // named arguments keep their string keys.
+            foreach ($normalized as $key => &$value) {
+                if (isset($consumed[$key])) {
+                    continue;
+                }
+
+                if (\is_int($key)) {
+                    $args[] = &$value;
+                } else {
+                    $args[$key] = &$value;
+                }
+            }
+
+            unset($value);
+        }
+
+        return $args;
     }
 
     /**
@@ -52,39 +178,34 @@ final class Handler
      *
      * @param  array{class-string<T>|T,string}|callable|T|string  $callable
      *
-     * @throws Exception If a non-static method is called statically.
+     * @throws UnresolvableException If the callable or its target method is invalid.
      * @throws \ReflectionException If reflection fails.
      */
     private function createReflection(array|callable|object|string $callable): ReflectionFunctionAbstract
     {
-        if ($callable instanceof Closure || \is_string($callable) && function_exists($callable)) {
+        if ($callable instanceof Closure || \is_string($callable) && \function_exists($callable)) {
             return new ReflectionFunction($callable);
         }
 
-        if (is_object($callable) && method_exists($callable, '__invoke')) {
+        if (\is_object($callable) && \method_exists($callable, '__invoke')) {
             $callable = [$callable, '__invoke'];
         }
 
-        if (! \is_array($callable)) {
-            throw new Exception('Invalid callable: '.\var_export($callable, true));
+        if (! \is_array($callable) || ! isset($callable[0], $callable[1])) {
+            throw UnresolvableException::invalidCallable($callable);
         }
 
         [$class, $method] = $callable;
 
-        if (! method_exists($class, $method)) {
-            throw new Exception('Method '.$method.' does not exist on class '.$class);
+        // __call()-based "methods" fail method_exists(); the bundled Resolver
+        // rejects them earlier, so this only guards custom ResolverInterface
+        // implementations that keep such pairs. Malformed pairs cannot reach
+        // here: resolveCallable(): callable only admits is_callable() values,
+        // which always carry a string method.
+        if (! \method_exists($class, $method)) {
+            throw UnresolvableException::methodNotFound($class, $method);
         }
 
-        $ref = new ReflectionMethod($class, $method);
-
-        // If trying to statically call a non-static method
-        if (! $ref->isStatic() && \is_string($callable[0])) {
-            throw new Exception(\sprintf(
-                'Non-static method %s should not be called statically',
-                \implode('::', $callable)
-            ));
-        }
-
-        return $ref;
+        return new ReflectionMethod($class, $method);
     }
 }

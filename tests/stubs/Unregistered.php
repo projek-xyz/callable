@@ -2,7 +2,7 @@
 
 namespace Stubs;
 
-class Unregistered
+final class Unregistered
 {
     public function __construct(
         public Registered $registered

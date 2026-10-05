@@ -1,7 +1,7 @@
 {
     "name": "projek-xyz/callable",
-    "description": "Project Template",
-    "keywords": ["project", "callable"],
+    "description": "Auto-wire and invoke any callable through PSR-11",
+    "keywords": ["callable-resolver", "callable-handler", "dependency-injection", "di", "psr-11"],
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -11,7 +11,7 @@
         }
     ],
     "support": {
-        "source": "https://github.com/projek-xyz/php-lib-template"
+        "source": "https://github.com/projek-xyz/callable"
     },
     "funding": [
         {
@@ -44,8 +44,7 @@
     },
     "require-dev": {
         "kahlan/kahlan": "^6.1",
-        "laravel/pint": "^1.32",
-        "projek-xyz/container": "^1.1"
+        "laravel/pint": "^1.32"
     },
     "config": {
         "optimize-autoloader": true,
