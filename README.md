@@ -1,6 +1,7 @@
 [![Version](https://img.shields.io/packagist/v/projek-xyz/callable?style=flat-square)](https://packagist.org/packages/projek-xyz/callable)
 [![License](https://img.shields.io/github/license/projek-xyz/callable?style=flat-square)](https://github.com/projek-xyz/callable/blob/main/LICENSE)
 [![Actions Status](https://img.shields.io/github/actions/workflow/status/projek-xyz/callable/tests.yml?branch=main&style=flat-square)](https://github.com/projek-xyz/callable/actions)
+[![Coverage Status](https://img.shields.io/coveralls/github/projek-xyz/callable/main?style=flat-square&logo=coveralls)](https://coveralls.io/github/projek-xyz/callable)
 
 # Auto-wire and invoke any callable through PSR-11
 
