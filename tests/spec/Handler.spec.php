@@ -74,18 +74,10 @@ describe(Handler::class, function () {
         // ContainerExceptionInterface signals a real failure (broken factory, circular
         // reference) that must not be swallowed by quietly substituting another
         // resolver, or the misconfiguration would be discovered much later.
-        $broken = new FakeContainer(
-            failWith: new class('resolver factory exploded') extends RuntimeException implements ContainerExceptionInterface {},
-        );
+        $exploding = new class('resolver factory exploded') extends RuntimeException implements ContainerExceptionInterface {};
+        $broken = new FakeContainer(failWith: $exploding);
 
-        $error = null;
-        try {
-            new Handler($broken);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(ContainerExceptionInterface::class);
+        expect(fn () => new Handler($broken))->toThrow($exploding);
     });
 
     it('should fail fast when the container returns an invalid resolver', function () {
@@ -97,39 +89,26 @@ describe(Handler::class, function () {
             ResolverInterface::class => fn () => new stdClass,
         ]);
 
-        $error = null;
-        try {
-            new Handler($wrong);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(TypeError::class);
+        expect(fn () => new Handler($wrong))->toThrow(new TypeError);
     });
 
     it('should invoke a closure with explicitly passed parameters', function () use ($container) {
         // Baseline happy path: positional $params must line up with the callable's
         // parameters and the return value must pass through untouched.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn (int $a, int $b) => $a + $b, [2, 3]))->toBe(5);
+        expect((new Handler($container))->handle(fn (int $a, int $b) => $a + $b, [2, 3]))->toBe(5);
     });
 
     it('should invoke a plain function string', function () use ($container) {
         // Global functions are valid callables: they must bypass class resolution and
         // reflect normally, with their (built-in typed) parameters fed positionally.
-        $handler = new Handler($container);
-
-        expect($handler->handle('strtoupper', ['hello']))->toBe('HELLO');
+        expect((new Handler($container))->handle('strtoupper', ['hello']))->toBe('HELLO');
     });
 
     it('should invoke a "Class::method" string', function () use ($container) {
         // The string shorthand is the library's headline feature; end-to-end it must
         // resolve the class through the container and invoke the method — none of
         // this path was covered before (Handler had 0% coverage).
-        $handler = new Handler($container);
-
-        expect($handler->handle('Stubs\Registered::bar'))->toBeNull();
+        expect((new Handler($container))->handle('Stubs\Registered::bar'))->toBeNull();
     });
 
     it('should invoke a [Class, method] pair and instantiate unregistered classes', function () use ($container) {
@@ -137,9 +116,7 @@ describe(Handler::class, function () {
         // with their own constructor dependencies injected (Unregistered needs
         // Registered). Because the resolver replaces the class-string with an
         // instance before reflection, the pair arrives as [$object, method].
-        $handler = new Handler($container);
-
-        expect($handler->handle([Unregistered::class, 'bar']))->toBeNull();
+        expect((new Handler($container))->handle([Unregistered::class, 'bar']))->toBeNull();
     });
 
     it('should invoke an [$object, method] pair', function () use ($container) {
@@ -154,95 +131,69 @@ describe(Handler::class, function () {
     it('should invoke an object with __invoke()', function () use ($container) {
         // Invokable objects are a ubiquitous callable shape; handle() must reflect
         // __invoke() — including defaulting its optional parameters.
-        $handler = new Handler($container);
-
-        expect($handler->handle(new Invokable))->toBe('invoked');
+        expect((new Handler($container))->handle(new Invokable))->toBe('invoked');
     });
 
     it('should inject type-hinted parameters from the container', function () use ($container) {
         // The core value of the library: a callable declaring `Registered $r`
         // receives the container's instance without the caller passing anything.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn (Registered $r) => $r))->toBeAnInstanceOf(Registered::class);
+        expect((new Handler($container))->handle(fn (Registered $r) => $r))->toBeAnInstanceOf(Registered::class);
     });
 
     it('should ignore parameters the callable does not declare', function () use ($container) {
         // Extra arguments are dropped rather than raising ArgumentCountError —
         // mirrors PHP's own tolerance for extra arguments on userland functions.
         // Pinning it down so a future strict mode is a conscious decision.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn () => 'ok', ['unused', 'args']))->toBe('ok');
+        expect((new Handler($container))->handle(fn () => 'ok', ['unused', 'args']))->toBe('ok');
     });
 
     it('should honour named arguments passed to handle()', function () use ($container) {
         // PHP 8 arrays with string keys are named arguments, and call_user_func_array
-        // supports them natively — but handle() only looks up $params[$position], so
-        // named arguments fall through to container lookup by parameter name and die
-        // with DependencyException instead of binding by name. Anyone migrating a
-        // direct call to handle() can hit this.
-        $handler = new Handler($container);
-
-        $error = null;
-        $result = null;
-        try {
-            $result = $handler->handle(fn (string $a, string $b) => $a.$b, ['a' => 'x', 'b' => 'y']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeNull();
-        expect($result)->toBe('xy');
+        // supports them natively. An earlier handle() only looked up
+        // $params[$position], so named arguments fell through to container lookup by
+        // parameter name and died with DependencyException instead of binding by
+        // name. Pin the native binding: anyone migrating a direct call to handle()
+        // carries named arguments with them.
+        expect((new Handler($container))->handle(fn (string $a, string $b) => $a.$b, ['a' => 'x', 'b' => 'y']))->toBe('xy');
     });
 
     it('should prefer an explicitly passed argument over the container', function () use ($container) {
         // Binding caller-provided values is exclusively Handler's job (the spec
         // moved this precedence out of Resolver::resolveParameter()): a value at
         // the parameter's position must win over container auto-wiring.
-        $handler = new Handler($container);
         $explicit = new Registered;
 
-        expect($handler->handle(fn (Registered $r) => $r, [$explicit]))->toBe($explicit);
+        expect((new Handler($container))->handle(fn (Registered $r) => $r, [$explicit]))->toBe($explicit);
     });
 
     it('should bind an explicitly passed null instead of auto-wiring', function () use ($container) {
         // array_key_exists(), not isset(): an explicit null means "provided" —
         // the container must not shadow it with its own instance, or callers
         // cannot reset an optional dependency.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn (?Registered $r = null) => $r, [null]))->toBeNull();
+        expect((new Handler($container))->handle(fn (?Registered $r = null) => $r, [null]))->toBeNull();
     });
 
     it('should prefer a named argument over the container for a class-typed parameter', function () use ($container) {
         // The named-key path has the same ownership as the positional one — the
         // caller's instance must bind, not the container's.
-        $handler = new Handler($container);
         $explicit = new Registered;
 
-        expect($handler->handle(fn (Registered $r) => $r, ['r' => $explicit]))->toBe($explicit);
+        expect((new Handler($container))->handle(fn (Registered $r) => $r, ['r' => $explicit]))->toBe($explicit);
     });
 
     it('should propagate by-reference parameters', function () use ($container) {
         // Callables that mutate their arguments (`function (Result &$out)`) are a
-        // normal PHP pattern. The value pipeline (array_map → call_user_func_array)
-        // drops the reference: today the caller gets a "must be passed by reference"
-        // warning AND an unchanged variable, so output-style callables silently
-        // produce nothing.
-        $handler = new Handler($container);
+        // normal PHP pattern. The old value pipeline (array_map →
+        // call_user_func_array) dropped the reference: the caller got a "must be
+        // passed by reference" warning AND an unchanged variable, so output-style
+        // callables silently produced nothing. Pin that the write now lands on the
+        // caller's variable.
         $reference = 'original';
 
-        $error = null;
-        try {
-            $handler->handle(function (&$arg) {
-                $arg = 'changed';
-            }, [&$reference]);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
+        (new Handler($container))->handle(function (&$arg) {
+            $arg = 'changed';
+        }, [&$reference]);
 
-        expect($error)->toBeNull();
         expect($reference)->toBe('changed');
     });
 
@@ -254,17 +205,8 @@ describe(Handler::class, function () {
         // instead: previously this crashed with an unrelated
         // `Error: Class "RdKafka\Exception" not found` because Handler imported
         // Exception from ext-rdkafka, which is not even a dependency.
-        $handler = new Handler($container);
-
-        $error = null;
-        try {
-            $handler->handle([new Dynamic, 'anyMethodHere']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(UnresolvableException::class);
-        expect($error->getMessage())->not->toBe('');
+        expect(fn () => (new Handler($container))->handle([new Dynamic, 'anyMethodHere']))
+            ->toThrow(UnresolvableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
     });
 
     it('should reject a shorthand "Class::method" string returned by a custom resolver', function () use ($fixedResolver) {
@@ -291,45 +233,30 @@ describe(Handler::class, function () {
     });
 
     it('should collect all arguments for a variadic callable', function () use ($container) {
-        // handle() maps over REFLECTION parameters — a variadic parameter is a single
-        // entry — so only $params[0] survives and arguments 2..n are silently
-        // discarded. Variadic callables (`fn (string $cmd, ...$args)`) receive a
-        // truncated argument list today.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn (...$args) => count($args), [1, 2, 3]))->toBe(3);
+        // handle() maps over REFLECTION parameters, where a variadic parameter is a
+        // single entry — so an earlier implementation kept only $params[0] and
+        // silently discarded arguments 2..n, handing variadic callables
+        // (`fn (string $cmd, ...$args)`) a truncated list. Pin the full collection.
+        expect((new Handler($container))->handle(fn (...$args) => count($args), [1, 2, 3]))->toBe(3);
     });
 
     it('should treat a variadic callable with no arguments as empty', function () use ($container) {
         // Same variadic spot one level up: resolveParameter() sees isOptional() ===
-        // true and calls getDefaultValue(), which raises ReflectionException for
-        // variadics. A variadic call with zero arguments must simply produce an
-        // empty argument list.
-        $handler = new Handler($container);
-
-        $error = null;
-        $result = null;
-        try {
-            $result = $handler->handle(fn (...$args) => count($args), []);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeNull();
-        expect($result)->toBe(0);
+        // true and would call getDefaultValue(), which raises ReflectionException
+        // for variadics. A variadic call with zero arguments must simply produce
+        // an empty argument list.
+        expect((new Handler($container))->handle(fn (...$args) => count($args), []))->toBe(0);
     });
 
     it('should keep a built-in parameter default when the container uses its name', function () {
         // For built-in types the type-hint lookup degrades to the bare parameter name,
-        // so a container entry called 'count' silently replaces the callable's own
-        // default (and a wrong-typed entry explodes with a TypeError). The default
-        // written by the developer must not be shadowed by an unrelated entry.
-        $collision = new FakeContainer([
-            'count' => fn () => 7,
-        ]);
-        $handler = new Handler($collision);
+        // which used to let a container entry called 'count' silently replace the
+        // callable's own default (a wrong-typed entry exploding with a TypeError).
+        // The default written by the developer must not be shadowed by an unrelated
+        // entry.
+        $collision = new FakeContainer(['count' => fn () => 7]);
 
-        expect($handler->handle(fn (int $count = 3) => $count))->toBe(3);
+        expect((new Handler($collision))->handle(fn (int $count = 3) => $count))->toBe(3);
     });
 
     it('should pack variadic arguments exactly like a native call', function () use ($container) {
@@ -338,9 +265,7 @@ describe(Handler::class, function () {
         // string keys. handle() must produce the identical array so code invoked
         // through the library behaves the same as a direct call: the caller's
         // integer key 1 must NOT leak through as $args[1].
-        $handler = new Handler($container);
-
-        expect($handler->handle(
+        expect((new Handler($container))->handle(
             fn (string $thing, ...$args) => $args,
             ['something', 'un-named arg', 'foo' => 'bar', 'bar' => 'baz']
         ))->toBe([
@@ -354,9 +279,7 @@ describe(Handler::class, function () {
         // The named key that bound a fixed parameter belongs to that parameter —
         // it must not leak into the variadic as a duplicate. Native
         // f(a: 'x', foo: 'y') gives $rest = ['foo' => 'y'], not both keys.
-        $handler = new Handler($container);
-
-        expect($handler->handle(
+        expect((new Handler($container))->handle(
             fn ($a, ...$rest) => $rest,
             ['a' => 'x', 'foo' => 'y']
         ))->toBe(['foo' => 'y']);
@@ -368,9 +291,7 @@ describe(Handler::class, function () {
         // way to build $params — leaves sparse keys behind. Matching native means
         // renumbering positionally instead of keying by value, or every argument
         // after a filtered-out entry would land on the wrong parameter.
-        $handler = new Handler($container);
-
-        expect($handler->handle(fn (int $a, int $b) => [$a, $b], [5 => 10, 7 => 20]))->toBe([10, 20]);
+        expect((new Handler($container))->handle(fn (int $a, int $b) => [$a, $b], [5 => 10, 7 => 20]))->toBe([10, 20]);
     });
 
     it('should reject positional arguments that follow named ones', function () use ($container) {
@@ -378,17 +299,8 @@ describe(Handler::class, function () {
         // Error('Cannot use positional argument after named argument') for this
         // key order. Mirroring it keeps handle() a drop-in for native invocation
         // instead of silently binding the arguments differently.
-        $handler = new Handler($container);
-
-        $error = null;
-        try {
-            $handler->handle(fn ($a, $b) => $a.$b, ['b' => 'y', 0 => 'x']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(Error::class);
-        expect($error->getMessage())->toBe('Cannot use positional argument after named argument');
+        expect(fn () => (new Handler($container))->handle(fn ($a, $b) => $a.$b, ['b' => 'y', 0 => 'x']))
+            ->toThrow(new Error('Cannot use positional argument after named argument'));
     });
 
     it('should reject a named argument that overwrites a positional one', function () use ($container) {
@@ -396,17 +308,8 @@ describe(Handler::class, function () {
         // Error('Named parameter $a overwrites previous argument') when a single
         // parameter is targeted twice; quietly preferring the positional value
         // would hide a genuine caller bug.
-        $handler = new Handler($container);
-
-        $error = null;
-        try {
-            $handler->handle(fn ($a) => $a, [0 => 'positional', 'a' => 'named']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(Error::class);
-        expect($error->getMessage())->toBe('Named parameter $a overwrites previous argument');
+        expect(fn () => (new Handler($container))->handle(fn ($a) => $a, [0 => 'positional', 'a' => 'named']))
+            ->toThrow(new Error('Named parameter $a overwrites previous argument'));
     });
 
     it('should reject a named argument that matches no parameter', function () use ($container) {
@@ -415,17 +318,8 @@ describe(Handler::class, function () {
         // is a caller mistake (e.g. a typo in the name). Silently dropping it, or
         // letting auto-wiring mask it with a DependencyException about some other
         // parameter, would let the bug pass unnoticed.
-        $handler = new Handler($container);
-
-        $error = null;
-        try {
-            $handler->handle(fn ($a) => $a, ['foo' => 'x']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(Error::class);
-        expect($error->getMessage())->toBe('Unknown named parameter $foo');
+        expect(fn () => (new Handler($container))->handle(fn ($a) => $a, ['foo' => 'x']))
+            ->toThrow(new Error('Unknown named parameter $foo'));
     });
 
     it('should let the engine throw TypeError for a mismatched argument type', function () use ($container) {
@@ -436,16 +330,8 @@ describe(Handler::class, function () {
         // silently coerce '2' to 2; the fully qualified call restores the native
         // TypeError. Instance check only: the message embeds both the closure's
         // file:line and src/Handler.php's line number, so it shifts with edits.
-        $handler = new Handler($container);
-
-        $error = null;
-        try {
-            $handler->handle(fn (int $n) => $n, ['2']);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(TypeError::class);
+        expect(fn () => (new Handler($container))->handle(fn (int $n) => $n, ['2']))
+            ->toThrow(new TypeError);
     });
 
     it('should surface DependencyException when a required parameter cannot be auto-wired', function () use ($container) {
@@ -454,17 +340,11 @@ describe(Handler::class, function () {
         // the parameter (built-in int type, no default, no container entry),
         // the failure names the parameter and position instead of only saying
         // "Too few arguments" — richer diagnostics for the same situation.
-        $handler = new Handler($container);
+        $callable = fn (int $one, int $two) => $one + $two;
+        $param = (new ReflectionFunction($callable))->getParameters()[0];
 
-        $error = null;
-        try {
-            $handler->handle(fn (int $one, int $two) => $one + $two);
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(DependencyException::class);
-        expect($error->getMessage())->toBe('{closure}(): Argument #1 ($one) is not resolvable');
+        expect(fn () => (new Handler($container))->handle($callable))
+            ->toThrow(new DependencyException($param));
     });
 
     it('should surface the native-style argument label for a plain function', function () use ($container) {
@@ -472,18 +352,11 @@ describe(Handler::class, function () {
         // declaring function's name and the 1-BASED argument position — so a
         // failing handle('myFunc') reads like the direct call it replaced:
         // str_repeat's first parameter is a built-in type with no default and
-        // nothing to auto-wire, the same shape as the test.php scenario.
-        $handler = new Handler($container);
+        // nothing to auto-wire.
+        $param = (new ReflectionFunction('str_repeat'))->getParameters()[0];
 
-        $error = null;
-        try {
-            $handler->handle('str_repeat');
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(DependencyException::class);
-        expect($error->getMessage())->toBe('str_repeat(): Argument #1 ($string) is not resolvable');
+        expect(fn () => (new Handler($container))->handle('str_repeat'))
+            ->toThrow(new DependencyException($param));
     });
 
     it('should refuse to auto-wire a by-reference parameter', function () use ($container) {
@@ -491,19 +364,12 @@ describe(Handler::class, function () {
         // write through the reference lands on a value discarded when handle()
         // returns — an output-style callable would silently produce nothing.
         // The caller must pass the variable itself, so resolution fails loudly.
-        $handler = new Handler($container);
+        $callable = function (&$out) {
+            $out = 'written';
+        };
+        $param = (new ReflectionFunction($callable))->getParameters()[0];
 
-        $error = null;
-        try {
-            $handler->handle(function (&$out) {
-                $out = 'written';
-            });
-        } catch (Throwable $err) {
-            $error = $err;
-        }
-
-        expect($error)->toBeAnInstanceOf(DependencyException::class);
-        expect($error->getMessage())
-            ->toBe('{closure}(): Argument #1 ($out) is not resolvable: by-reference parameter must be provided explicitly');
+        expect(fn () => (new Handler($container))->handle($callable))
+            ->toThrow(new DependencyException($param, 'by-reference parameter must be provided explicitly'));
     });
 });

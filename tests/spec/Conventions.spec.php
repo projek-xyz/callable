@@ -34,3 +34,27 @@ describe('Source conventions', function () {
         expect($missing)->toBe([]);
     });
 });
+
+describe('Spec conventions', function () {
+    it('should assert error paths with toThrow() instead of hand-rolled catch blocks', function () {
+        // An error-path spec that catches Throwable itself can swallow the very
+        // failure it exists to make — and Kahlan reports zero-expectation specs
+        // as Pending with exit 0, so a regression here sails through green CI as
+        // a dead spec. Forbid catching Throwable outright in tests/spec/ so
+        // every error-path spec keeps its toThrow() pin and the suite's
+        // "0 Pending" guarantee holds. The needle is split across literals and
+        // file contents are read with backslashes stripped, so the checker
+        // matches both the plain and the fully-qualified spelling — and can
+        // never match itself.
+        $violations = [];
+        foreach (glob(__DIR__.'/*.spec.php') ?: [] as $file) {
+            $contents = str_replace('\\', '', (string) file_get_contents($file));
+
+            if (str_contains($contents, 'catch ('.'Throwable')) {
+                $violations[] = basename($file);
+            }
+        }
+
+        expect($violations)->toBe([]);
+    });
+});
