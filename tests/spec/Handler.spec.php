@@ -20,10 +20,6 @@ use function Kahlan\expect;
 use function Kahlan\it;
 
 describe(Handler::class, function () {
-    it('Should be an instance of', function () {
-        expect(class_exists(Handler::class))->toBeTruthy();
-    });
-
     $container = new Container([
         Registered::class => fn () => new Registered,
     ]);
@@ -52,7 +48,7 @@ describe(Handler::class, function () {
         },
     ]);
 
-    it('Should fall back to a built-in resolver when ResolverInterface is not bound', function () {
+    it('should fall back to a built-in resolver when ResolverInterface is not bound', function () {
         // The common out-of-the-box situation: the application's PSR-11 container
         // knows nothing about this library's ResolverInterface, so the constructor
         // must silently substitute the bundled Resolver — otherwise Handler is
@@ -62,7 +58,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn () => 'fallback-ok'))->toBe('fallback-ok');
     });
 
-    it('Should prefer a container-provided resolver', function () {
+    it('should prefer a container-provided resolver', function () {
         // When an application does bind ResolverInterface (e.g. a decorated or
         // extended resolver), the constructor's happy path must use that instance
         // instead of the fallback — this is the try-block branch of __construct().
@@ -74,7 +70,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn () => 'bound-resolver'))->toBe('bound-resolver');
     });
 
-    it('Should surface non-NotFound container errors while resolving its resolver', function () {
+    it('should surface non-NotFound container errors while resolving its resolver', function () {
         // Only NotFoundExceptionInterface may trigger the fallback: a generic
         // ContainerExceptionInterface signals a real failure (broken factory, circular
         // reference) that must not be swallowed by quietly substituting another
@@ -102,7 +98,7 @@ describe(Handler::class, function () {
         expect($error)->toBeAnInstanceOf(ContainerExceptionInterface::class);
     });
 
-    it('Should fail fast when the container returns an invalid resolver', function () {
+    it('should fail fast when the container returns an invalid resolver', function () {
         // A ResolverInterface entry resolving to something else is a wiring mistake.
         // The typed $resolver property turns it into a TypeError during construction —
         // loud and early beats half-working invocation later. (If a friendlier
@@ -121,7 +117,7 @@ describe(Handler::class, function () {
         expect($error)->toBeAnInstanceOf(TypeError::class);
     });
 
-    it('Should invoke a closure with explicitly passed parameters', function () use ($container) {
+    it('should invoke a closure with explicitly passed parameters', function () use ($container) {
         // Baseline happy path: positional $params must line up with the callable's
         // parameters and the return value must pass through untouched.
         $handler = new Handler($container);
@@ -129,7 +125,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (int $a, int $b) => $a + $b, [2, 3]))->toBe(5);
     });
 
-    it('Should invoke a plain function string', function () use ($container) {
+    it('should invoke a plain function string', function () use ($container) {
         // Global functions are valid callables: they must bypass class resolution and
         // reflect normally, with their (built-in typed) parameters fed positionally.
         $handler = new Handler($container);
@@ -137,7 +133,7 @@ describe(Handler::class, function () {
         expect($handler->handle('strtoupper', ['hello']))->toBe('HELLO');
     });
 
-    it('Should invoke a "Class::method" string', function () use ($container) {
+    it('should invoke a "Class::method" string', function () use ($container) {
         // The string shorthand is the library's headline feature; end-to-end it must
         // resolve the class through the container and invoke the method — none of
         // this path was covered before (Handler had 0% coverage).
@@ -146,7 +142,7 @@ describe(Handler::class, function () {
         expect($handler->handle('Stubs\Registered::bar'))->toBeNull();
     });
 
-    it('Should invoke a [Class, method] pair and instantiate unregistered classes', function () use ($container) {
+    it('should invoke a [Class, method] pair and instantiate unregistered classes', function () use ($container) {
         // Unregistered classes must still work through reflection-based construction
         // with their own constructor dependencies injected (Unregistered needs
         // Registered). Because the resolver replaces the class-string with an
@@ -156,7 +152,7 @@ describe(Handler::class, function () {
         expect($handler->handle([Unregistered::class, 'bar']))->toBeNull();
     });
 
-    it('Should invoke an [$object, method] pair', function () use ($container) {
+    it('should invoke an [$object, method] pair', function () use ($container) {
         // Instance callables bypass class resolution entirely — no class lookup
         // and no instantiation happen for an already-resolved object.
         $handler = new Handler($container);
@@ -165,7 +161,7 @@ describe(Handler::class, function () {
         expect($handler->handle([$registered, 'bar']))->toBeNull();
     });
 
-    it('Should invoke an object with __invoke()', function () use ($container) {
+    it('should invoke an object with __invoke()', function () use ($container) {
         // Invokable objects are a ubiquitous callable shape; handle() must reflect
         // __invoke() — including defaulting its optional parameters.
         $handler = new Handler($container);
@@ -173,7 +169,7 @@ describe(Handler::class, function () {
         expect($handler->handle(new Invokable))->toBe('invoked');
     });
 
-    it('Should inject type-hinted parameters from the container', function () use ($container) {
+    it('should inject type-hinted parameters from the container', function () use ($container) {
         // The core value of the library: a callable declaring `Registered $r`
         // receives the container's instance without the caller passing anything.
         $handler = new Handler($container);
@@ -181,7 +177,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (Registered $r) => $r))->toBeAnInstanceOf(Registered::class);
     });
 
-    it('Should ignore parameters the callable does not declare', function () use ($container) {
+    it('should ignore parameters the callable does not declare', function () use ($container) {
         // Extra arguments are dropped rather than raising ArgumentCountError —
         // mirrors PHP's own tolerance for extra arguments on userland functions.
         // Pinning it down so a future strict mode is a conscious decision.
@@ -190,7 +186,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn () => 'ok', ['unused', 'args']))->toBe('ok');
     });
 
-    it('Should honour named arguments passed to handle()', function () use ($container) {
+    it('should honour named arguments passed to handle()', function () use ($container) {
         // PHP 8 arrays with string keys are named arguments, and call_user_func_array
         // supports them natively — but handle() only looks up $params[$position], so
         // named arguments fall through to container lookup by parameter name and die
@@ -210,7 +206,7 @@ describe(Handler::class, function () {
         expect($result)->toBe('xy');
     });
 
-    it('Should prefer an explicitly passed argument over the container', function () use ($container) {
+    it('should prefer an explicitly passed argument over the container', function () use ($container) {
         // Binding caller-provided values is exclusively Handler's job (the spec
         // moved this precedence out of Resolver::resolveParameter()): a value at
         // the parameter's position must win over container auto-wiring.
@@ -220,7 +216,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (Registered $r) => $r, [$explicit]))->toBe($explicit);
     });
 
-    it('Should bind an explicitly passed null instead of auto-wiring', function () use ($container) {
+    it('should bind an explicitly passed null instead of auto-wiring', function () use ($container) {
         // array_key_exists(), not isset(): an explicit null means "provided" —
         // the container must not shadow it with its own instance, or callers
         // cannot reset an optional dependency.
@@ -229,7 +225,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (?Registered $r = null) => $r, [null]))->toBeNull();
     });
 
-    it('Should prefer a named argument over the container for a class-typed parameter', function () use ($container) {
+    it('should prefer a named argument over the container for a class-typed parameter', function () use ($container) {
         // The named-key path has the same ownership as the positional one — the
         // caller's instance must bind, not the container's.
         $handler = new Handler($container);
@@ -238,7 +234,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (Registered $r) => $r, ['r' => $explicit]))->toBe($explicit);
     });
 
-    it('Should propagate by-reference parameters', function () use ($container) {
+    it('should propagate by-reference parameters', function () use ($container) {
         // Callables that mutate their arguments (`function (Result &$out)`) are a
         // normal PHP pattern. The value pipeline (array_map → call_user_func_array)
         // drops the reference: today the caller gets a "must be passed by reference"
@@ -260,7 +256,7 @@ describe(Handler::class, function () {
         expect($reference)->toBe('changed');
     });
 
-    it('Should reject callables that rely on __call()', function () use ($container) {
+    it('should reject callables that rely on __call()', function () use ($container) {
         // Decision: __call()-based "methods" (proxies, magic services) satisfy
         // is_callable() but have no real method to reflect, so their parameter
         // type-hints could never be honoured — invoking them would bypass every
@@ -281,7 +277,7 @@ describe(Handler::class, function () {
         expect($error->getMessage())->not->toBe('');
     });
 
-    it('Should reject a shorthand "Class::method" string returned by a custom resolver', function () use ($fixedResolver) {
+    it('should reject a shorthand "Class::method" string returned by a custom resolver', function () use ($fixedResolver) {
         // ResolverInterface admits any is_callable() value — including static
         // shorthand strings, which function_exists() cannot reflect (it only
         // knows native functions). createReflection() must fail with a
@@ -293,7 +289,7 @@ describe(Handler::class, function () {
             ->toThrow(UnresolvableException::invalidCallable('Stubs\StaticOnly::make'));
     });
 
-    it('Should reject an __call()-only pair returned by a custom resolver', function () use ($fixedResolver) {
+    it('should reject an __call()-only pair returned by a custom resolver', function () use ($fixedResolver) {
         // The bundled Resolver rejects __call() pairs inside resolveCallable();
         // a custom resolver may not. createReflection() must still fail with a
         // message naming the missing method rather than reflecting nothing and
@@ -304,7 +300,7 @@ describe(Handler::class, function () {
             ->toThrow(UnresolvableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
     });
 
-    it('Should collect all arguments for a variadic callable', function () use ($container) {
+    it('should collect all arguments for a variadic callable', function () use ($container) {
         // handle() maps over REFLECTION parameters — a variadic parameter is a single
         // entry — so only $params[0] survives and arguments 2..n are silently
         // discarded. Variadic callables (`fn (string $cmd, ...$args)`) receive a
@@ -314,7 +310,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (...$args) => count($args), [1, 2, 3]))->toBe(3);
     });
 
-    it('Should treat a variadic callable with no arguments as empty', function () use ($container) {
+    it('should treat a variadic callable with no arguments as empty', function () use ($container) {
         // Same variadic spot one level up: resolveParameter() sees isOptional() ===
         // true and calls getDefaultValue(), which raises ReflectionException for
         // variadics. A variadic call with zero arguments must simply produce an
@@ -333,7 +329,7 @@ describe(Handler::class, function () {
         expect($result)->toBe(0);
     });
 
-    it('Should keep a built-in parameter default when the container uses its name', function () {
+    it('should keep a built-in parameter default when the container uses its name', function () {
         // For built-in types the type-hint lookup degrades to the bare parameter name,
         // so a container entry called 'count' silently replaces the callable's own
         // default (and a wrong-typed entry explodes with a TypeError). The default
@@ -346,7 +342,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (int $count = 3) => $count))->toBe(3);
     });
 
-    it('Should pack variadic arguments exactly like a native call', function () use ($container) {
+    it('should pack variadic arguments exactly like a native call', function () use ($container) {
         // Native PHP packs extra positional arguments into the variadic with keys
         // renumbered from 0, then appends unmatched named arguments with their
         // string keys. handle() must produce the identical array so code invoked
@@ -364,7 +360,7 @@ describe(Handler::class, function () {
         ]);
     });
 
-    it('Should keep a consumed named argument out of the variadic', function () use ($container) {
+    it('should keep a consumed named argument out of the variadic', function () use ($container) {
         // The named key that bound a fixed parameter belongs to that parameter —
         // it must not leak into the variadic as a duplicate. Native
         // f(a: 'x', foo: 'y') gives $rest = ['foo' => 'y'], not both keys.
@@ -376,7 +372,7 @@ describe(Handler::class, function () {
         ))->toBe(['foo' => 'y']);
     });
 
-    it('Should bind integer keys by order, not by key value', function () use ($container) {
+    it('should bind integer keys by order, not by key value', function () use ($container) {
         // Native call_user_func_array() ignores the actual integer key values
         // ([5 => 'x'] feeds the first parameter); array_filter() — a very common
         // way to build $params — leaves sparse keys behind. Matching native means
@@ -387,7 +383,7 @@ describe(Handler::class, function () {
         expect($handler->handle(fn (int $a, int $b) => [$a, $b], [5 => 10, 7 => 20]))->toBe([10, 20]);
     });
 
-    it('Should reject positional arguments that follow named ones', function () use ($container) {
+    it('should reject positional arguments that follow named ones', function () use ($container) {
         // Native call_user_func_array() throws
         // Error('Cannot use positional argument after named argument') for this
         // key order. Mirroring it keeps handle() a drop-in for native invocation
@@ -405,7 +401,7 @@ describe(Handler::class, function () {
         expect($error->getMessage())->toBe('Cannot use positional argument after named argument');
     });
 
-    it('Should reject a named argument that overwrites a positional one', function () use ($container) {
+    it('should reject a named argument that overwrites a positional one', function () use ($container) {
         // Native call_user_func_array() throws
         // Error('Named parameter $a overwrites previous argument') when a single
         // parameter is targeted twice; quietly preferring the positional value
@@ -423,7 +419,7 @@ describe(Handler::class, function () {
         expect($error->getMessage())->toBe('Named parameter $a overwrites previous argument');
     });
 
-    it('Should reject a named argument that matches no parameter', function () use ($container) {
+    it('should reject a named argument that matches no parameter', function () use ($container) {
         // Native call_user_func_array() throws
         // Error('Unknown named parameter $foo') — a string key matching nothing
         // is a caller mistake (e.g. a typo in the name). Silently dropping it, or
@@ -442,7 +438,7 @@ describe(Handler::class, function () {
         expect($error->getMessage())->toBe('Unknown named parameter $foo');
     });
 
-    it('Should refuse to auto-wire a by-reference parameter', function () use ($container) {
+    it('should refuse to auto-wire a by-reference parameter', function () use ($container) {
         // A container entry is a temporary: PHP lets the call succeed, but the
         // write through the reference lands on a value discarded when handle()
         // returns — an output-style callable would silently produce nothing.

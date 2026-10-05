@@ -82,10 +82,6 @@ final class Resolver implements ResolverInterface
      */
     public function resolveParameter(ReflectionParameter $param): mixed
     {
-        $position = $param->getPosition();
-        $name = $param->getName();
-        $notFound = null;
-
         // A variadic has no meaningful single value: Handler splices the
         // arguments itself and createInstance() skips variadic constructor
         // parameters, so only a direct call (specs, custom callers) can land
@@ -93,6 +89,9 @@ final class Resolver implements ResolverInterface
         if ($param->isVariadic()) {
             return [];
         }
+
+        $position = $param->getPosition();
+        $name = $param->getName();
 
         // By-reference parameters must be provided by the caller: a value pulled
         // from the container (or a default) is a temporary — PHP lets the call
@@ -107,6 +106,7 @@ final class Resolver implements ResolverInterface
 
         $type = $param->getType();
         $typeName = null;
+        $notFound = null;
 
         if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
             // Class-typed parameter: fulfil it from the container.

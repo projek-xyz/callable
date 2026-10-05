@@ -28,56 +28,54 @@ describe(Resolver::class, function () {
     // A PSR-11 container that fails with a *generic* ContainerExceptionInterface
     // (not NotFoundExceptionInterface) — PSR-11 explicitly allows this for broken
     // factories, circular references, etc.
-    $brokenContainer = function () {
-        return new class implements ContainerInterface
+    $brokenContainer = fn () => new class implements ContainerInterface
+    {
+        public function get(string $id): mixed
         {
-            public function get(string $id): mixed
-            {
-                throw new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {};
-            }
+            throw new class('Simulated resolution failure') extends RuntimeException implements ContainerExceptionInterface {};
+        }
 
-            public function has(string $id): bool
-            {
-                return false;
-            }
-        };
+        public function has(string $id): bool
+        {
+            return false;
+        }
     };
 
     given('r', fn () => new Resolver($container));
 
-    it('Should throw error on non resolvable', function () {
+    it('should throw error on non resolvable', function () {
         expect(fn () => $this->r->resolveCallable('foobar'))
             ->toThrow(UnresolvableException::invalidCallable('foobar'));
     });
 
-    it('Should resolve registered Class::method pair', function () use ($container) {
+    it('should resolve registered Class::method pair', function () use ($container) {
         expect($this->r->resolveCallable('Stubs\Registered::bar'))->toBe([$container->get(Registered::class), 'bar']);
     });
 
-    it('Should resolve unregistered Class::method pair', function () {
+    it('should resolve unregistered Class::method pair', function () {
         expect($this->r->resolveCallable('Stubs\Unregistered::bar')[0])->toBeAnInstanceOf(Unregistered::class);
     });
 
-    it('Should throw error on invalid Class::method pair', function () {
+    it('should throw error on invalid Class::method pair', function () {
         expect(fn () => $this->r->resolveCallable('Registered::bar'))
             ->toThrow(UnresolvableException::invalidCallable('Registered'));
     });
 
-    it('Should resolve registered [Class::class, method] pair', function () use ($container) {
+    it('should resolve registered [Class::class, method] pair', function () use ($container) {
         expect($this->r->resolveCallable([Registered::class, 'bar']))->toBe([$container->get(Registered::class), 'bar']);
     });
 
-    it('Should throw error on invalid [Class::class, method] pair', function () {
+    it('should throw error on invalid [Class::class, method] pair', function () {
         expect(fn () => $this->r->resolveCallable(['Registered', 'bar']))
             ->toThrow(UnresolvableException::invalidCallable('Registered'));
     });
 
-    it('Should resolve registered [$obj, method] pair', function () use ($container) {
+    it('should resolve registered [$obj, method] pair', function () use ($container) {
         $obj = $container->get(Registered::class);
         expect($this->r->resolveCallable([$obj, 'bar']))->toBe([$obj, 'bar']);
     });
 
-    it('Should pass a closure through untouched', function () {
+    it('should pass a closure through untouched', function () {
         // Closures are the most frequently handed-over callable shape; they must be
         // returned by identity so that bound state, `use` variables and readonly
         // captures survive resolution.
@@ -86,7 +84,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveCallable($closure))->toBe($closure);
     });
 
-    it('Should throw UnresolvableException for a non-callable scalar', function () {
+    it('should throw UnresolvableException for a non-callable scalar', function () {
         // resolveCallable() accepts untyped input, so scalars leaking in from config,
         // routes or request data are realistic. The exception must be ours and must
         // carry a message: an earlier implementation read an undefined $message for
@@ -103,7 +101,7 @@ describe(Resolver::class, function () {
         expect($error->getMessage())->not->toBe('');
     });
 
-    it('Should throw UnresolvableException for an empty array callable', function () {
+    it('should throw UnresolvableException for an empty array callable', function () {
         // An empty array must be reported as unresolvable without warnings: an
         // earlier implementation evaluated `is_string($callable[0])` first,
         // producing "Undefined array key 0" (Kahlan surfaces it as
@@ -118,7 +116,7 @@ describe(Resolver::class, function () {
         expect($error)->toBeAnInstanceOf(UnresolvableException::class);
     });
 
-    it('Should throw UnresolvableException for a pair array without a method', function () {
+    it('should throw UnresolvableException for a pair array without a method', function () {
         // [$object] is a malformed pair: it has no method element, so none of the
         // string or pair message branches apply — same class of bug as the scalar
         // case, but through the array branch. Malformed input must always yield a
@@ -134,7 +132,7 @@ describe(Resolver::class, function () {
         expect($error->getMessage())->not->toBe('');
     });
 
-    it('Should throw UnresolvableException for an interface entry', function () {
+    it('should throw UnresolvableException for an interface entry', function () {
         // Interfaces and traits are class-like names that can never be instantiated
         // (class_exists() is false for them). Resolving `[SomeInterface::class, 'm']`
         // must fail with the library's exception rather than leaking a container or
@@ -143,7 +141,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::invalidCallable('Stringable'));
     });
 
-    it('Should throw UnresolvableException for an enum entry', function () {
+    it('should throw UnresolvableException for an enum entry', function () {
         // A bare enum class-string is not a callable: enums have no __invoke(),
         // so is_callable() is false and resolution fails before any container
         // lookup — invalidCallable() names the entry. The createInstance()
@@ -153,7 +151,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::invalidCallable(Status::class));
     });
 
-    it('Should throw UnresolvableException when the class is not instantiable', function () {
+    it('should throw UnresolvableException when the class is not instantiable', function () {
         // Enums are class_exists() but never instantiable. A pair naming a real
         // enum method passes the static-method check (label() is an instance
         // method) and reaches createInstance(), where isInstantiable() must
@@ -163,7 +161,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::notInstantiable(Status::class));
     });
 
-    it('Should resolve a class-string of an invokable class', function () {
+    it('should resolve a class-string of an invokable class', function () {
         // A class exposing __invoke() is a legitimate callable target. `Class::method`
         // strings are resolved to instances, but a bare invokable class-string is
         // rejected today because is_callable('Stubs\Invokable') is false for strings —
@@ -181,7 +179,7 @@ describe(Resolver::class, function () {
         expect($result)->toBeAnInstanceOf(Invokable::class);
     });
 
-    it('Should throw UnresolvableException for an object without __invoke()', function () {
+    it('should throw UnresolvableException for an object without __invoke()', function () {
         // Objects are only callable through __invoke(); handing a plain object
         // to resolveCallable() must produce a message naming its class instead
         // of an object dump or an empty message.
@@ -189,7 +187,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::invalidCallable(new stdClass));
     });
 
-    it('Should resolve a static Class::method without instantiating the class', function () {
+    it('should resolve a static Class::method without instantiating the class', function () {
         // Static methods never need an object, yet resolveFromContainer() always
         // instantiates the class first. A pure static helper becomes unresolvable the
         // moment its constructor has dependencies the container cannot build (and
@@ -207,7 +205,7 @@ describe(Resolver::class, function () {
         expect(is_callable($result))->toBeTruthy();
     });
 
-    it('Should throw UnresolvableException when the method does not exist', function () {
+    it('should throw UnresolvableException when the method does not exist', function () {
         // Typos in 'Class::method' strings are the most common user error; the
         // resulting message must name the missing method so it can be fixed at a
         // glance (this is also the code path that surfaces __call-less misses).
@@ -215,7 +213,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::methodNotFound(Registered::class, 'nope'));
     });
 
-    it('Should name the method when a pair targets a private method', function () {
+    it('should name the method when a pair targets a private method', function () {
         // method_exists() reports private methods but is_callable() does not, so
         // such a pair survives both the static-method and __call() checks and
         // lands in invalidCallable()'s pair branch. The message must name the
@@ -225,7 +223,7 @@ describe(Resolver::class, function () {
             ->toThrow(UnresolvableException::invalidCallable([Registered::class, 'hidden']));
     });
 
-    it('Should wrap generic container failures in UnresolvableException', function () use ($brokenContainer) {
+    it('should wrap generic container failures in UnresolvableException', function () use ($brokenContainer) {
         // PSR-11 lets get() throw a plain ContainerExceptionInterface, not only
         // NotFoundExceptionInterface. resolveCallable() documents @throws
         // UnresolvableException — raw container exceptions escaping break that
@@ -243,7 +241,7 @@ describe(Resolver::class, function () {
         expect($error->getMessage())->toBe('Failed to resolve Stubs\Registered: Simulated resolution failure');
     });
 
-    it('Should ignore explicit arguments — binding them is Handler\'s job', function () use ($container) {
+    it('should ignore explicit arguments — binding them is Handler\'s job', function () use ($container) {
         // resolveParameter() no longer receives caller arguments at all: its only
         // caller (Handler) binds provided values before auto-wiring. Passing one
         // here must resolve from the container's instance — never $explicit.
@@ -254,7 +252,7 @@ describe(Resolver::class, function () {
             ->toBe($container->get(Registered::class));
     });
 
-    it('Should resolve a type-hinted parameter from the container', function () {
+    it('should resolve a type-hinted parameter from the container', function () {
         // Core contract of resolveParameter(): a class-typed parameter is fulfilled
         // by the container without the caller passing anything.
         $param = (new ReflectionFunction(fn (Registered $r) => $r))->getParameters()[0];
@@ -262,7 +260,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveParameter($param))->toBeAnInstanceOf(Registered::class);
     });
 
-    it('Should prefer the container entry over a default value when not provided', function () {
+    it('should prefer the container entry over a default value when not provided', function () {
         // Documented precedence (AGENTS.md): defaults are consulted only when the
         // container cannot provide the type — keeps `= null` style defaults as a
         // last-resort fallback rather than a silent override of a configured service.
@@ -271,7 +269,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveParameter($param))->toBeAnInstanceOf(Registered::class);
     });
 
-    it('Should fall back to the default value when the container lacks the type', function () {
+    it('should fall back to the default value when the container lacks the type', function () {
         // Optional parameters must keep working against a container that has no
         // matching entry — the default (including `null`) is the safety net.
         $param = (new ReflectionFunction(fn (?Unregistered $u = null) => $u))->getParameters()[0];
@@ -279,7 +277,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveParameter($param))->toBeNull();
     });
 
-    it('Should fall back to an enum-case default value', function () {
+    it('should fall back to an enum-case default value', function () {
         // Enum-typed parameters with enum-case defaults (`fn (Status $s =
         // Status::Draft)`) are a very common way to express defaults; the constant
         // expression must survive a failed container lookup.
@@ -288,7 +286,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveParameter($param))->toBe(Status::Draft);
     });
 
-    it('Should throw DependencyException naming the type and position', function () {
+    it('should throw DependencyException naming the type and position', function () {
         // When a required dependency is missing this is the public error users see:
         // it must name the type, the parameter position, and chain the container
         // exception as previous for debugging. DependencyException has zero coverage
@@ -299,7 +297,7 @@ describe(Resolver::class, function () {
             ->toThrow(new DependencyException('Stubs\Unregistered', 0));
     });
 
-    it('Should fall back to the parameter name when there is no class type', function () {
+    it('should fall back to the parameter name when there is no class type', function () {
         // Untyped parameters cannot be looked up by type, so the container is queried
         // by bare parameter name. Pinning this down because it is the mechanism that
         // makes the name/type collisions below possible — and because it is currently
@@ -312,7 +310,7 @@ describe(Resolver::class, function () {
         expect((new Resolver($named))->resolveParameter($param))->toBe('injected-by-name');
     });
 
-    it('Should not resolve a union-typed parameter from the container', function () {
+    it('should not resolve a union-typed parameter from the container', function () {
         // Decision: union types are deliberately NOT auto-wired. Trying each
         // member invites ambiguity (both registered? which wins?) and silently
         // picking one hides the developer's intent — a required union parameter
@@ -333,7 +331,7 @@ describe(Resolver::class, function () {
         expect($result)->toBeNull();
     });
 
-    it('Should name the union type, not the parameter, in DependencyException', function () {
+    it('should name the union type, not the parameter, in DependencyException', function () {
         // When union resolution fails the diagnostic must point at the type the
         // developer wrote, not at an arbitrary parameter name — "Dependency $dep at
         // position 0" sends users hunting for the wrong thing.
@@ -343,7 +341,7 @@ describe(Resolver::class, function () {
             ->toThrow(new DependencyException('Stubs\Registered|Stubs\Unregistered', 0));
     });
 
-    it('Should refuse to resolve a by-reference parameter from the container', function () {
+    it('should refuse to resolve a by-reference parameter from the container', function () {
         // A container entry (or default) is a temporary: passing it to a
         // by-reference parameter lets the call succeed, but every write through
         // the reference is discarded once the call returns — an output-style
@@ -357,7 +355,7 @@ describe(Resolver::class, function () {
             ->toThrow(new DependencyException('out', 0, 'by-reference parameter $out must be provided explicitly'));
     });
 
-    it('Should not let a container entry shadow a built-in default', function () {
+    it('should not let a container entry shadow a built-in default', function () {
         // For built-in types there is no class to resolve, so the resolver queries the
         // container by bare parameter name. Anything registered under that name
         // (here: 'count') overrides the developer's own default — and a wrong-typed
@@ -371,7 +369,7 @@ describe(Resolver::class, function () {
         expect((new Resolver($counting))->resolveParameter($param))->toBe(3);
     });
 
-    it('Should treat a variadic parameter as empty when no arguments are passed', function () {
+    it('should treat a variadic parameter as empty when no arguments are passed', function () {
         // Variadic parameters report isOptional() === true but have no default value,
         // so getDefaultValue() raises ReflectionException("Internal error: Failed to
         // retrieve the default value"). Calling a variadic callable with zero
@@ -389,7 +387,7 @@ describe(Resolver::class, function () {
         expect($error)->toBeNull();
     });
 
-    it('Should ignore explicit arguments for a variadic parameter (Handler splices them)', function () {
+    it('should ignore explicit arguments for a variadic parameter (Handler splices them)', function () {
         // Collection moved to Handler's splice; the Resolver's variadic branch is
         // now a guard that returns [] so getDefaultValue() is never called on a
         // variadic parameter.
@@ -398,7 +396,7 @@ describe(Resolver::class, function () {
         expect($this->r->resolveParameter($param, ['ignored-fixed', 1, 2, 'foo' => 'bar']))->toBe([]);
     });
 
-    it('Should build a class with a variadic constructor through createInstance()', function () {
+    it('should build a class with a variadic constructor through createInstance()', function () {
         // createInstance() resolves constructor parameters through
         // resolveParameter(); a variadic has no default value, so without the
         // isVariadic() guard ReflectionException("Failed to retrieve the default
@@ -412,7 +410,7 @@ describe(Resolver::class, function () {
         expect($instance->run())->toBe([]);
     });
 
-    it('Should construct a typed variadic constructor natively through createInstance()', function () {
+    it('should construct a typed variadic constructor natively through createInstance()', function () {
         // The phantom [] is loud for typed variadics: as the single argument it
         // raises TypeError("... must be of type string, array given") — the
         // class constructs natively but not through us, even when the element
@@ -422,7 +420,7 @@ describe(Resolver::class, function () {
         expect($instance->parts())->toBe([]);
     });
 
-    it('Should wrap generic container failures in DependencyException', function () use ($brokenContainer) {
+    it('should wrap generic container failures in DependencyException', function () use ($brokenContainer) {
         // PSR-11 permits get() to throw a non-NotFound ContainerExceptionInterface
         // for resolution failures. resolveParameter() only catches
         // NotFoundExceptionInterface, so those escape raw even though the interface
@@ -441,7 +439,7 @@ describe(Resolver::class, function () {
         expect($error)->toBeAnInstanceOf(DependencyException::class);
     });
 
-    it('Should throw DependencyException when an untyped parameter is missing from the container', function () {
+    it('should throw DependencyException when an untyped parameter is missing from the container', function () {
         // Untyped parameters resolve by bare name; when the container has no such
         // entry and there is no default, the failure must surface as
         // DependencyException naming the parameter — not as the container's own
@@ -452,7 +450,7 @@ describe(Resolver::class, function () {
             ->toThrow(new DependencyException('missing', 0));
     });
 
-    it('Should wrap generic container failures for untyped parameters', function () use ($brokenContainer) {
+    it('should wrap generic container failures for untyped parameters', function () use ($brokenContainer) {
         // Same guarantee as the class-typed case, but through the bare-name
         // lookup: a broken factory must still surface as DependencyException
         // rather than the container's foreign exception type.

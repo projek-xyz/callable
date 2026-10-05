@@ -7,7 +7,7 @@ use function Kahlan\expect;
 use function Kahlan\it;
 
 describe('Source conventions', function () {
-    it('Should declare strict_types in every source file except exceptions and interfaces', function () {
+    it('should declare strict_types in every source file except exceptions and interfaces', function () {
         // strict_types governs calls made *from* a file, so it matters most in the
         // classes carrying real logic (Handler, Resolver) — there it stops silent
         // scalar coercion inside the library's own calls. Exception classes only
