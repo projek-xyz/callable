@@ -98,11 +98,12 @@ vendor/           # Composer dependencies
 ## Testing
 
 - Test framework: **Kahlan** (v6.x)
-- Spec files live in `tests/spec/` and use `describe/it/expect` syntax
-- Spec names start with a lowercase `should` (e.g. `it('should …')`), not `Should`
-- Stub classes for container lookups live in `tests/stubs/`
+- Spec files live in `tests/spec/**/*.spec.php` and use `describe`/`it` + `expect()` syntax
+- Spec files should mirrors `src/` files structures: `src/Foo.php` -> `tests/spec/Foo.spec.php`; `src/Foo/Bar.php` -> `tests/spec/Foo/Bar.spec.php`
+- Stub file live in `tests/stub/` with `Stubs\` PSR-4 prefix (autoload-dev)
 - Run all tests with `composer spec`
-- CI runs tests on PHP 8.4–8.5 matrix (`.github/workflows/tests.yml`)
+- CI runs tests on PHP 8.4–8.5 matrix (`.github/workflows/tests.yml`), local dev pins PHP 8.4 via `.tool-versions` (asdf/mise)
+- The suite currently reports 100% coverage (87/87 statements) — new `src/` code needs specs to keep it there (CI coverage driver: xdebug)
 
 ## Container Integration
 
