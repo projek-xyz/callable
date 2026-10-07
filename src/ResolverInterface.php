@@ -25,4 +25,12 @@ interface ResolverInterface
      * @throws DependencyException
      */
     public function resolveParameter(ReflectionParameter $param): mixed;
+
+    /**
+     * @template T of object
+     *
+     * @param  class-string<T>  $entry
+     * @return T
+     */
+    public function resolveInstance(string $entry): object;
 }

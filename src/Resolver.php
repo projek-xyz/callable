@@ -56,7 +56,7 @@ final class Resolver implements ResolverInterface
                     throw UnresolvableException::invalidCallable($class, $err);
                 }
 
-                $callable[0] = $this->createInstance($class);
+                $callable[0] = $this->resolveInstance($class);
             }
         }
 
@@ -82,7 +82,7 @@ final class Resolver implements ResolverInterface
                     throw UnresolvableException::invalidCallable($callable, $err);
                 }
 
-                $callable = $this->createInstance($callable);
+                $callable = $this->resolveInstance($callable);
             }
         }
 
@@ -166,12 +166,9 @@ final class Resolver implements ResolverInterface
     }
 
     /**
-     * @template T of object
-     *
-     * @param  class-string<T>  $entry
-     * @return T
+     * {@inheritDoc}
      */
-    private function createInstance(string $entry): object
+    public function resolveInstance(string $entry): object
     {
         $ref = new ReflectionClass($entry);
 
