@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Projek\Callable\DependencyException;
 use Projek\Callable\Resolver;
-use Projek\Callable\UnresolvableException;
+use Projek\Callable\UnresolvableCallableException;
+use Projek\Callable\UnresolvableParameterException;
 use Psr\Container\ContainerExceptionInterface;
 use Stubs\FakeContainer;
 use Stubs\Invokable;
@@ -37,7 +37,7 @@ describe(Resolver::class, function () {
         // as the library's own diagnosis — not be handed back as a callable that
         // only explodes at invocation time, deep in the caller's code.
         expect(fn () => (new Resolver($container))->resolveCallable('foobar'))
-            ->toThrow(UnresolvableException::invalidCallable('foobar'));
+            ->toThrow(UnresolvableCallableException::invalidCallable('foobar'));
     });
 
     it('should resolve registered Class::method pair', function () use ($container) {
@@ -59,7 +59,7 @@ describe(Resolver::class, function () {
         // namespace — a classic typo) must be diagnosed before invocation, with
         // the message naming the class so the mistake is obvious at a glance.
         expect(fn () => (new Resolver($container))->resolveCallable('Registered::bar'))
-            ->toThrow(UnresolvableException::invalidCallable('Registered'));
+            ->toThrow(UnresolvableCallableException::invalidCallable('Registered'));
     });
 
     it('should resolve registered [Class::class, method] pair', function () use ($container) {
@@ -74,7 +74,7 @@ describe(Resolver::class, function () {
         // real class: both input shapes funnel into one unresolvable-callable
         // failure instead of reaching instantiation.
         expect(fn () => (new Resolver($container))->resolveCallable(['Registered', 'bar']))
-            ->toThrow(UnresolvableException::invalidCallable('Registered'));
+            ->toThrow(UnresolvableCallableException::invalidCallable('Registered'));
     });
 
     it('should resolve registered [$obj, method] pair', function () use ($container) {
@@ -94,61 +94,61 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveCallable($closure))->toBe($closure);
     });
 
-    it('should throw UnresolvableException for a non-callable scalar', function () use ($container) {
+    it('should throw UnresolvableCallableException for a non-callable scalar', function () use ($container) {
         // resolveCallable() accepts untyped input, so scalars leaking in from config,
         // routes or request data are realistic. The exception must be ours and must
         // carry a message: an earlier implementation read an undefined $message for
         // integers/null/bools (none of its message branches applied), so callers got
         // a PHP warning plus an empty message instead of a diagnosis.
         expect(fn () => (new Resolver($container))->resolveCallable(123))
-            ->toThrow(UnresolvableException::invalidCallable(123));
+            ->toThrow(UnresolvableCallableException::invalidCallable(123));
     });
 
-    it('should throw UnresolvableException for an empty array callable', function () use ($container) {
+    it('should throw UnresolvableCallableException for an empty array callable', function () use ($container) {
         // An empty array must be reported as unresolvable without warnings: an
         // earlier implementation evaluated `is_string($callable[0])` first,
         // producing "Undefined array key 0" (Kahlan surfaces it as
         // PhpErrorException) before the domain exception could be thrown.
         expect(fn () => (new Resolver($container))->resolveCallable([]))
-            ->toThrow(UnresolvableException::invalidCallable([]));
+            ->toThrow(UnresolvableCallableException::invalidCallable([]));
     });
 
-    it('should throw UnresolvableException for a pair array without a method', function () use ($container) {
+    it('should throw UnresolvableCallableException for a pair array without a method', function () use ($container) {
         // [$object] is a malformed pair: it has no method element, so none of the
         // string or pair message branches apply — same class of bug as the scalar
         // case, but through the array branch. Malformed input must always yield a
         // diagnosable exception instead of an empty message.
         expect(fn () => (new Resolver($container))->resolveCallable([new stdClass]))
-            ->toThrow(UnresolvableException::invalidCallable([new stdClass]));
+            ->toThrow(UnresolvableCallableException::invalidCallable([new stdClass]));
     });
 
-    it('should throw UnresolvableException for an interface entry', function () use ($container) {
+    it('should throw UnresolvableCallableException for an interface entry', function () use ($container) {
         // Interfaces and traits are class-like names that can never be instantiated
         // (class_exists() is false for them). Resolving `[SomeInterface::class, 'm']`
         // must fail with the library's exception rather than leaking a container or
         // reflection error.
         expect(fn () => (new Resolver($container))->resolveCallable([Stringable::class, 'jsonSerialize']))
-            ->toThrow(UnresolvableException::invalidCallable('Stringable'));
+            ->toThrow(UnresolvableCallableException::invalidCallable('Stringable'));
     });
 
-    it('should throw UnresolvableException for an enum entry', function () use ($container) {
+    it('should throw UnresolvableCallableException for an enum entry', function () use ($container) {
         // A bare enum class-string is not a callable: enums have no __invoke(),
         // so is_callable() is false and resolution fails before any container
-        // lookup — invalidCallable() names the entry. The createInstance()
+        // lookup — invalidCallable() names the entry. The resolveInstance()
         // guard for non-instantiable classes is exercised separately, by the
         // [Status::class, 'label'] pair below.
         expect(fn () => (new Resolver($container))->resolveCallable(Status::class))
-            ->toThrow(UnresolvableException::invalidCallable(Status::class));
+            ->toThrow(UnresolvableCallableException::invalidCallable(Status::class));
     });
 
-    it('should throw UnresolvableException when the class is not instantiable', function () use ($container) {
+    it('should throw UnresolvableCallableException when the class is not instantiable', function () use ($container) {
         // Enums are class_exists() but never instantiable. A pair naming a real
         // enum method passes the static-method check (label() is an instance
-        // method) and reaches createInstance(), where isInstantiable() must
+        // method) and reaches resolveInstance(), where isInstantiable() must
         // fire — otherwise ReflectionClass::newInstanceArgs() leaks a raw
         // ReflectionException instead of the library's exception.
         expect(fn () => (new Resolver($container))->resolveCallable([Status::class, 'label']))
-            ->toThrow(UnresolvableException::notInstantiable(Status::class));
+            ->toThrow(UnresolvableCallableException::notInstantiable(Status::class));
     });
 
     it('should resolve a class-string of an invokable class', function () use ($container) {
@@ -160,12 +160,12 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveCallable(Invokable::class))->toBeAnInstanceOf(Invokable::class);
     });
 
-    it('should throw UnresolvableException for an object without __invoke()', function () use ($container) {
+    it('should throw UnresolvableCallableException for an object without __invoke()', function () use ($container) {
         // Objects are only callable through __invoke(); handing a plain object
         // to resolveCallable() must produce a message naming its class instead
         // of an object dump or an empty message.
         expect(fn () => (new Resolver($container))->resolveCallable(new stdClass))
-            ->toThrow(UnresolvableException::invalidCallable(new stdClass));
+            ->toThrow(UnresolvableCallableException::invalidCallable(new stdClass));
     });
 
     it('should resolve a static Class::method without instantiating the class', function () use ($container) {
@@ -179,12 +179,12 @@ describe(Resolver::class, function () {
         expect(is_callable($result))->toBeTruthy();
     });
 
-    it('should throw UnresolvableException when the method does not exist', function () use ($container) {
+    it('should throw UnresolvableCallableException when the method does not exist', function () use ($container) {
         // Typos in 'Class::method' strings are the most common user error; the
         // resulting message must name the missing method so it can be fixed at a
         // glance (this is also the code path that surfaces __call-less misses).
         expect(fn () => (new Resolver($container))->resolveCallable([Registered::class, 'nope']))
-            ->toThrow(UnresolvableException::methodNotFound(Registered::class, 'nope'));
+            ->toThrow(UnresolvableCallableException::methodNotFound(Registered::class, 'nope'));
     });
 
     it('should name the method when a pair targets a private method', function () use ($container) {
@@ -194,7 +194,7 @@ describe(Resolver::class, function () {
         // method — a bare "not a callable" would send users hunting for wiring
         // problems when the real issue is visibility.
         expect(fn () => (new Resolver($container))->resolveCallable([Registered::class, 'hidden']))
-            ->toThrow(UnresolvableException::invalidCallable([Registered::class, 'hidden']));
+            ->toThrow(UnresolvableCallableException::invalidCallable([Registered::class, 'hidden']));
     });
 
     it('should let a generic container failure propagate from resolveCallable', function () use ($brokenContainer, $exploding) {
@@ -255,14 +255,14 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveParameter($param))->toBe(Status::Draft);
     });
 
-    it('should throw DependencyException naming the type and position', function () use ($container) {
+    it('should throw UnresolvableParameterException naming the type and position', function () use ($container) {
         // When a required dependency is missing this is the public error users see:
         // it must name the type, the parameter position, and chain the container
         // exception as previous for debugging.
         $param = (new ReflectionFunction(fn (Unregistered $u) => $u))->getParameters()[0];
 
         expect(fn () => (new Resolver($container))->resolveParameter($param))
-            ->toThrow(new DependencyException($param, 'Stubs\Unregistered'));
+            ->toThrow(new UnresolvableParameterException($param, 'Stubs\Unregistered'));
     });
 
     it('should label method parameters Class::method like native errors', function () use ($container) {
@@ -274,7 +274,7 @@ describe(Resolver::class, function () {
         $param = (new ReflectionMethod(StaticOnly::class, '__construct'))->getParameters()[0];
 
         expect(fn () => (new Resolver($container))->resolveParameter($param))
-            ->toThrow(new DependencyException($param, 'Stubs\Unregistered'));
+            ->toThrow(new UnresolvableParameterException($param, 'Stubs\Unregistered'));
     });
 
     it('should fall back to the parameter name when there is no class type', function () {
@@ -299,7 +299,7 @@ describe(Resolver::class, function () {
         $param = (new ReflectionFunction(fn (Registered|Unregistered $dep) => $dep))->getParameters()[0];
 
         expect(fn () => (new Resolver($container))->resolveParameter($param))
-            ->toThrow(new DependencyException($param, 'Stubs\Registered|Stubs\Unregistered'));
+            ->toThrow(new UnresolvableParameterException($param, 'Stubs\Registered|Stubs\Unregistered'));
     });
 
     it('should refuse to resolve a by-reference parameter from the container', function () use ($container) {
@@ -313,7 +313,7 @@ describe(Resolver::class, function () {
         }))->getParameters()[0];
 
         expect(fn () => (new Resolver($container))->resolveParameter($param))
-            ->toThrow(new DependencyException($param, 'by-reference parameter must be provided explicitly'));
+            ->toThrow(new UnresolvableParameterException($param, 'by-reference parameter must be provided explicitly'));
     });
 
     it('should not let a container entry shadow a built-in default', function () {
@@ -348,8 +348,8 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveParameter($param, ['ignored-fixed', 1, 2, 'foo' => 'bar']))->toBe([]);
     });
 
-    it('should build a class with a variadic constructor through createInstance()', function () use ($container) {
-        // createInstance() resolves constructor parameters through
+    it('should build a class with a variadic constructor through resolveInstance()', function () use ($container) {
+        // resolveInstance() resolves constructor parameters through
         // resolveParameter(); a variadic has no default value, so without the
         // isVariadic() guard ReflectionException("Failed to retrieve the default
         // value") would leak instead of a working instance.
@@ -362,7 +362,7 @@ describe(Resolver::class, function () {
         expect($instance->run())->toBe([]);
     });
 
-    it('should construct a typed variadic constructor natively through createInstance()', function () use ($container) {
+    it('should construct a typed variadic constructor natively through resolveInstance()', function () use ($container) {
         // The phantom [] is loud for typed variadics: as the single argument it
         // raises TypeError("... must be of type string, array given") — the
         // class constructs natively but not through us, even when the element
@@ -377,7 +377,7 @@ describe(Resolver::class, function () {
         // it falls through the default chain. A generic ContainerExceptionInterface
         // (broken factory, circular reference) is the container orchestrator's
         // failure, not a resolution outcome, so it must escape as the very
-        // instance the container threw — wrapping it in DependencyException (as
+        // instance the container threw — wrapping it in UnresolvableParameterException (as
         // this used to) made callers catch foreign plumbing in the library's
         // clothing.
         $resolver = new Resolver($brokenContainer());
@@ -399,20 +399,20 @@ describe(Resolver::class, function () {
         expect(fn () => $resolver->resolveParameter($param))->toThrow($exploding);
     });
 
-    it('should throw DependencyException when an untyped parameter is missing from the container', function () use ($container) {
+    it('should throw UnresolvableParameterException when an untyped parameter is missing from the container', function () use ($container) {
         // Untyped parameters resolve by bare name; when the container has no such
         // entry and there is no default, the failure must surface as
-        // DependencyException naming the parameter — not as the container's own
+        // UnresolvableParameterException naming the parameter — not as the container's own
         // NotFoundExceptionInterface escaping the interface's @throws contract.
         $param = (new ReflectionFunction(fn ($missing) => $missing))->getParameters()[0];
 
         expect(fn () => (new Resolver($container))->resolveParameter($param))
-            ->toThrow(new DependencyException($param));
+            ->toThrow(new UnresolvableParameterException($param));
     });
 
     it('should let a generic container failure propagate through the name lookup', function () use ($brokenContainer, $exploding) {
         // Same contract as the class-typed branch: the bare-name lookup handles
-        // only NotFound (falling through to DependencyException at the end) and
+        // only NotFound (falling through to UnresolvableParameterException at the end) and
         // lets any other container failure escape untouched — a broken factory
         // must surface as the container's own exception, never be re-labelled
         // as a resolution failure by the library.

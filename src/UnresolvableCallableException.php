@@ -7,7 +7,7 @@ namespace Projek\Callable;
 use InvalidArgumentException;
 use Throwable;
 
-final class UnresolvableException extends InvalidArgumentException
+final class UnresolvableCallableException extends InvalidArgumentException implements ResolverExceptionInterface
 {
     /**
      * Construction is routed through the named factories below: each failure

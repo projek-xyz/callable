@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Projek\Callable\DependencyException;
 use Projek\Callable\Handler;
 use Projek\Callable\Resolver;
 use Projek\Callable\ResolverInterface;
-use Projek\Callable\UnresolvableException;
+use Projek\Callable\UnresolvableCallableException;
+use Projek\Callable\UnresolvableParameterException;
 use Psr\Container\ContainerExceptionInterface;
 use Stubs\Dynamic;
 use Stubs\FakeContainer;
@@ -156,7 +156,7 @@ describe(Handler::class, function () {
         // PHP 8 arrays with string keys are named arguments, and call_user_func_array
         // supports them natively. An earlier handle() only looked up
         // $params[$position], so named arguments fell through to container lookup by
-        // parameter name and died with DependencyException instead of binding by
+        // parameter name and died with UnresolvableParameterException instead of binding by
         // name. Pin the native binding: anyone migrating a direct call to handle()
         // carries named arguments with them.
         expect((new Handler($container))->handle(fn (string $a, string $b) => $a.$b, ['a' => 'x', 'b' => 'y']))->toBe('xy');
@@ -206,12 +206,12 @@ describe(Handler::class, function () {
         // Decision: __call()-based "methods" (proxies, magic services) satisfy
         // is_callable() but have no real method to reflect, so their parameter
         // type-hints could never be honoured — invoking them would bypass every
-        // guarantee this library makes. Reject them with UnresolvableException
+        // guarantee this library makes. Reject them with UnresolvableCallableException
         // instead: previously this crashed with an unrelated
         // `Error: Class "RdKafka\Exception" not found` because Handler imported
         // Exception from ext-rdkafka, which is not even a dependency.
         expect(fn () => (new Handler($container))->handle([new Dynamic, 'anyMethodHere']))
-            ->toThrow(UnresolvableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
+            ->toThrow(UnresolvableCallableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
     });
 
     it('should reject a shorthand "Class::method" string returned by a custom resolver', function () use ($fixedResolver) {
@@ -223,7 +223,7 @@ describe(Handler::class, function () {
         $handler = new Handler($fixedResolver('Stubs\StaticOnly::make'));
 
         expect(fn () => $handler->handle('ignored'))
-            ->toThrow(UnresolvableException::invalidCallable('Stubs\StaticOnly::make'));
+            ->toThrow(UnresolvableCallableException::invalidCallable('Stubs\StaticOnly::make'));
     });
 
     it('should reject an __call()-only pair returned by a custom resolver', function () use ($fixedResolver) {
@@ -234,7 +234,7 @@ describe(Handler::class, function () {
         $handler = new Handler($fixedResolver([new Dynamic, 'anyMethodHere']));
 
         expect(fn () => $handler->handle('ignored'))
-            ->toThrow(UnresolvableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
+            ->toThrow(UnresolvableCallableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
     });
 
     it('should collect all arguments for a variadic callable', function () use ($container) {
@@ -321,7 +321,7 @@ describe(Handler::class, function () {
         // Native call_user_func_array() throws
         // Error('Unknown named parameter $foo') — a string key matching nothing
         // is a caller mistake (e.g. a typo in the name). Silently dropping it, or
-        // letting auto-wiring mask it with a DependencyException about some other
+        // letting auto-wiring mask it with a UnresolvableParameterException about some other
         // parameter, would let the bug pass unnoticed.
         expect(fn () => (new Handler($container))->handle(fn ($a) => $a, ['foo' => 'x']))
             ->toThrow(new Error('Unknown named parameter $foo'));
@@ -339,7 +339,7 @@ describe(Handler::class, function () {
             ->toThrow(new TypeError);
     });
 
-    it('should surface DependencyException when a required parameter cannot be auto-wired', function () use ($container) {
+    it('should surface UnresolvableParameterException when a required parameter cannot be auto-wired', function () use ($container) {
         // Too few arguments is where the library deliberately diverges from
         // native: auto-wiring REPLACES ArgumentCountError. When nothing can fill
         // the parameter (built-in int type, no default, no container entry),
@@ -349,7 +349,7 @@ describe(Handler::class, function () {
         $param = (new ReflectionFunction($callable))->getParameters()[0];
 
         expect(fn () => (new Handler($container))->handle($callable))
-            ->toThrow(new DependencyException($param));
+            ->toThrow(new UnresolvableParameterException($param));
     });
 
     it('should surface the native-style argument label for a plain function', function () use ($container) {
@@ -361,7 +361,7 @@ describe(Handler::class, function () {
         $param = (new ReflectionFunction('str_repeat'))->getParameters()[0];
 
         expect(fn () => (new Handler($container))->handle('str_repeat'))
-            ->toThrow(new DependencyException($param));
+            ->toThrow(new UnresolvableParameterException($param));
     });
 
     it('should refuse to auto-wire a by-reference parameter', function () use ($container) {
@@ -375,6 +375,6 @@ describe(Handler::class, function () {
         $param = (new ReflectionFunction($callable))->getParameters()[0];
 
         expect(fn () => (new Handler($container))->handle($callable))
-            ->toThrow(new DependencyException($param, 'by-reference parameter must be provided explicitly'));
+            ->toThrow(new UnresolvableParameterException($param, 'by-reference parameter must be provided explicitly'));
     });
 });

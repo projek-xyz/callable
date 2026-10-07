@@ -9,7 +9,7 @@ use ReflectionParameter;
 use RuntimeException;
 use Throwable;
 
-final class DependencyException extends RuntimeException
+final class UnresolvableParameterException extends RuntimeException implements ResolverExceptionInterface
 {
     public function __construct(
         public readonly ReflectionParameter $param,

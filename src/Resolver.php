@@ -53,7 +53,7 @@ final class Resolver implements ResolverInterface
                 if (! \class_exists($class)) {
                     // Neither registered nor an existing class: name the entry so the
                     // typo (missing namespace, wrong FQCN) is obvious at a glance.
-                    throw UnresolvableException::invalidCallable($class, $err);
+                    throw UnresolvableCallableException::invalidCallable($class, $err);
                 }
 
                 $callable[0] = $this->resolveInstance($class);
@@ -68,7 +68,7 @@ final class Resolver implements ResolverInterface
             && \is_object($callable[0]) && \is_string($callable[1])
             && ! \method_exists($callable[0], $callable[1])
         ) {
-            throw UnresolvableException::methodNotFound($callable[0], $callable[1]);
+            throw UnresolvableCallableException::methodNotFound($callable[0], $callable[1]);
         }
 
         // A bare class-string of an invokable class resolves to its instance
@@ -79,7 +79,7 @@ final class Resolver implements ResolverInterface
                 $callable = $this->container->get($callable);
             } catch (NotFoundExceptionInterface $err) {
                 if (! \class_exists($callable)) {
-                    throw UnresolvableException::invalidCallable($callable, $err);
+                    throw UnresolvableCallableException::invalidCallable($callable, $err);
                 }
 
                 $callable = $this->resolveInstance($callable);
@@ -91,7 +91,7 @@ final class Resolver implements ResolverInterface
             return $callable;
         }
 
-        throw UnresolvableException::invalidCallable($callable);
+        throw UnresolvableCallableException::invalidCallable($callable);
     }
 
     /**
@@ -100,7 +100,7 @@ final class Resolver implements ResolverInterface
     public function resolveParameter(ReflectionParameter $param): mixed
     {
         // A variadic has no meaningful single value: Handler splices the
-        // arguments itself and createInstance() skips variadic constructor
+        // arguments itself and resolveInstance() skips variadic constructor
         // parameters, so only a direct call (specs, custom callers) can land
         // here — keep container lookup from packing a spurious value.
         if ($param->isVariadic()) {
@@ -113,7 +113,7 @@ final class Resolver implements ResolverInterface
         // call returns, so an output-style callable would silently produce
         // nothing.
         if ($param->isPassedByReference()) {
-            throw new DependencyException($param, 'by-reference parameter must be provided explicitly');
+            throw new UnresolvableParameterException($param, 'by-reference parameter must be provided explicitly');
         }
 
         $type = $param->getType();
@@ -162,7 +162,7 @@ final class Resolver implements ResolverInterface
             }
         }
 
-        throw new DependencyException($param, $typeName, $notFound);
+        throw new UnresolvableParameterException($param, $typeName, $notFound);
     }
 
     /**
@@ -173,7 +173,7 @@ final class Resolver implements ResolverInterface
         $ref = new ReflectionClass($entry);
 
         if (! $ref->isInstantiable()) {
-            throw UnresolvableException::notInstantiable($entry);
+            throw UnresolvableCallableException::notInstantiable($entry);
         }
 
         $params = array_map(

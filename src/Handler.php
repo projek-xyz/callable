@@ -40,10 +40,9 @@ final class Handler
      * @param  array{class-string<T>|T,string}|callable|T|string  $callable
      * @param  array<mixed>  $params
      *
-     * @throws DependencyException If a required parameter cannot be resolved.
-     * @throws UnresolvableException If the callable itself cannot be resolved.
      * @throws ContainerExceptionInterface If the container fails with more than a missing entry (propagated untouched).
      * @throws Error If $params violates native argument-ordering rules.
+     * @throws ResolverExceptionInterface If a required parameter cannot be resolved or the callable itself cannot be resolved.
      */
     public function handle(array|callable|object|string $callable, array $params = [])
     {
@@ -72,7 +71,7 @@ final class Handler
      * arguments spill into a trailing variadic, exactly like a native call.
      *
      * @throws Error If $provided breaks native argument rules (ordering, overwrite, unknown named).
-     * @throws DependencyException If a parameter cannot be auto-wired from the container.
+     * @throws UnresolvableParameterException If a parameter cannot be auto-wired from the container.
      */
     private function buildArguments(array $parameters, array $provided): array
     {
@@ -181,7 +180,7 @@ final class Handler
      *
      * @param  array{class-string<T>|T,string}|callable|T|string  $callable
      *
-     * @throws UnresolvableException If the callable or its target method is invalid.
+     * @throws UnresolvableCallableException If the callable or its target method is invalid.
      * @throws \ReflectionException If reflection fails.
      */
     private function createReflection(array|callable|object|string $callable): ReflectionFunctionAbstract
@@ -195,7 +194,7 @@ final class Handler
         }
 
         if (! \is_array($callable) || ! isset($callable[0], $callable[1])) {
-            throw UnresolvableException::invalidCallable($callable);
+            throw UnresolvableCallableException::invalidCallable($callable);
         }
 
         [$class, $method] = $callable;
@@ -206,7 +205,7 @@ final class Handler
         // here: resolveCallable(): callable only admits is_callable() values,
         // which always carry a string method.
         if (! \method_exists($class, $method)) {
-            throw UnresolvableException::methodNotFound($class, $method);
+            throw UnresolvableCallableException::methodNotFound($class, $method);
         }
 
         return new ReflectionMethod($class, $method);

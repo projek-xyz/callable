@@ -73,20 +73,32 @@ $callable = (new Resolver($container))->resolveCallable(Greeter::class.'::greet'
 
 Failures are named the way PHP itself would name them:
 
-- **`DependencyException`** — a parameter could not be provided or auto-wired. The message mirrors native `TypeError` phrasing with the 1-based argument position:
+- **`UnresolvableParameterException`** — a parameter could not be provided or auto-wired. The message mirrors native `TypeError` phrasing with the 1-based argument position:
 
   ```php
   $handler->handle(fn (string $dsn) => $dsn);
-  // Projek\Callable\DependencyException:
+  // Projek\Callable\UnresolvableParameterException:
   // {closure}(): Argument #1 ($dsn) is not resolvable
   ```
 
-- **`UnresolvableException`** — the callable itself cannot be resolved:
+- **`UnresolvableCallableException`** — the callable itself cannot be resolved:
 
   ```text
   Instance of missing_function is not resolvable
   Method Greeter::nope() does not exist
   ```
+
+Both implement **`ResolverExceptionInterface`**, a single catch point for any resolution failure:
+
+```php
+use Projek\Callable\ResolverExceptionInterface;
+
+try {
+    $handler->handle($callable);
+} catch (ResolverExceptionInterface $e) {
+    // any resolution failure
+}
+```
 
 Container failures beyond a missing entry (a broken factory, a circular reference — PSR-11's generic `ContainerExceptionInterface`) are not translated: they propagate to you exactly as your container threw them, since only `NotFoundExceptionInterface` is the library's to handle.
 
