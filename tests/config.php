@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @link https://kahlan.github.io/docs/config-file.html
  */

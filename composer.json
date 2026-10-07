@@ -20,8 +20,8 @@
         }
     ],
     "scripts": {
-        "format": "pint --preset laravel",
-        "lint": "pint --preset laravel --test",
+        "format": "pint",
+        "lint": "pint --test",
         "spec": "kahlan --config=tests/config.php",
         "test": [
             "@lint",

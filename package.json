@@ -30,7 +30,7 @@
     },
     "lint-staged": {
         "*.php": [
-            "sh -c 'composer format -- \"$@\"; [ \"$?\" -eq 0 ] || [ \"$?\" -eq 1 ]' --"
+            "vendor/bin/pint"
         ]
     }
 }
