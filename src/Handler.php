@@ -13,10 +13,7 @@ use ReflectionMethod;
 
 final class Handler
 {
-    public function __construct(private ResolverInterface $resolver)
-    {
-        // .
-    }
+    public function __construct(public readonly ResolverInterface $resolver) {}
 
     /**
      * Invoke the given callable.
