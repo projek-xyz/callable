@@ -137,9 +137,9 @@ describe(Handler::class, function () {
     });
 
     it('should prefer an explicitly passed argument over the container', function () use ($handler) {
-        // Binding caller-provided values is exclusively Handler's job (the spec
-        // moved this precedence out of Resolver::resolveParameter()): a value at
-        // the parameter's position must win over container auto-wiring.
+        // Binding caller-provided values is Resolver::resolveArguments()'s job
+        // (resolveParameter() resolves only what the caller did not provide): a
+        // value at the parameter's position must win over container auto-wiring.
         $explicit = new Registered;
 
         expect($handler()->handle(fn (Registered $r) => $r, [$explicit]))->toBe($explicit);
@@ -205,6 +205,36 @@ describe(Handler::class, function () {
         // crashing later with an unrelated error.
         expect(fn () => $handler($fixedResolver([new Dynamic, 'anyMethodHere']))->handle('ignored'))
             ->toThrow(UnresolvableCallableException::methodNotFound(Dynamic::class, 'anyMethodHere'));
+    });
+
+    it('should build its argument list through the resolver', function () {
+        // Delegation pin: if Handler bound arguments itself, the unprovided $n
+        // would be auto-wired (int, no default → UnresolvableParameterException)
+        // instead of receiving the resolver's list.
+        $resolver = new class implements ResolverInterface
+        {
+            public function resolveCallable($callable): callable
+            {
+                return fn (int $n) => $n;
+            }
+
+            public function resolveArguments(array $parameters, array $provided): array
+            {
+                return [999];
+            }
+
+            public function resolveParameter(ReflectionParameter $param): mixed
+            {
+                throw new LogicException('resolveParameter() must not run in this spec.');
+            }
+
+            public function resolveInstance(string $entry, array $args = []): object
+            {
+                throw new LogicException('resolveInstance() must not run in this spec.');
+            }
+        };
+
+        expect((new Handler($resolver))->handle('ignored'))->toBe(999);
     });
 
     it('should collect all arguments for a variadic callable', function () use ($handler) {

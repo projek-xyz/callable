@@ -13,11 +13,9 @@ use ReflectionMethod;
 
 final class Handler
 {
-    use ParametersHelper;
-
-    public function __construct(ResolverInterface $resolver)
+    public function __construct(private ResolverInterface $resolver)
     {
-        $this->resolver = $resolver;
+        // .
     }
 
     /**
@@ -27,7 +25,8 @@ final class Handler
      * positional by order, string keys are named arguments, unmatched named
      * arguments spill into a trailing variadic — with one addition: parameters
      * the caller did not provide are auto-wired from the container (then their
-     * default value) instead of raising ArgumentCountError.
+     * default value) instead of raising ArgumentCountError. The binding itself
+     * is delegated to ResolverInterface::resolveArguments().
      *
      * @template T of object
      *
@@ -42,7 +41,7 @@ final class Handler
     {
         $callable = $this->resolver->resolveCallable($callable);
 
-        $args = $this->buildArguments(
+        $args = $this->resolver->resolveArguments(
             $this->createReflection($callable)->getParameters(),
             $params
         );
