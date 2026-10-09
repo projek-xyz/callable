@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.1](https://github.com/projek-xyz/callable/compare/v0.4.0...v0.4.1) (2026-10-09)
+
+### Features
+
+* expose `Handler::` as readonly property ([20dac3c](https://github.com/projek-xyz/callable/commit/20dac3c254043892ce957a04e717d57e0fa9ed5a))
+
 ## [0.4.0](https://github.com/projek-xyz/callable/compare/v0.3.1...v0.4.0) (2026-10-09)
 
 ### ⚠ BREAKING CHANGES
