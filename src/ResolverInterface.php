@@ -34,7 +34,8 @@ interface ResolverInterface
      * @return array<mixed>
      *
      * @throws Error If $provided breaks native argument rules (positional-after-named, overwrite, unknown named).
-     * @throws ContainerExceptionInterface | UnresolvableParameterException
+     * @throws ContainerExceptionInterface A container failure other than a missing entry — propagated untouched, never wrapped.
+     * @throws UnresolvableParameterException If a parameter cannot be auto-wired.
      */
     public function resolveArguments(array $parameters, array $provided): array;
 
@@ -51,7 +52,10 @@ interface ResolverInterface
      * @param  array<mixed>  $args  bound against the constructor exactly like handle() binds $params.
      * @return T
      *
-     * @throws Error | ContainerExceptionInterface | UnresolvableCallableException | UnresolvableParameterException
+     * @throws Error If $args breaks native argument rules (positional-after-named, overwrite, unknown named).
+     * @throws ContainerExceptionInterface A container failure other than a missing entry — propagated untouched, never wrapped.
+     * @throws UnresolvableCallableException If the entry is not instantiable.
+     * @throws UnresolvableParameterException If a constructor parameter cannot be resolved.
      */
     public function resolveInstance(string $entry, array $args = []): object;
 }
