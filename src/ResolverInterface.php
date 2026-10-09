@@ -48,7 +48,10 @@ interface ResolverInterface
      * @template T of object
      *
      * @param  class-string<T>  $entry
+     * @param  array<mixed>  $args  bound against the constructor exactly like handle() binds $params.
      * @return T
+     *
+     * @throws Error | ContainerExceptionInterface | UnresolvableCallableException | UnresolvableParameterException
      */
-    public function resolveInstance(string $entry): object;
+    public function resolveInstance(string $entry, array $args = []): object;
 }

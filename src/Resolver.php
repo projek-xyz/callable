@@ -272,7 +272,7 @@ final class Resolver implements ResolverInterface
     /**
      * {@inheritDoc}
      */
-    public function resolveInstance(string $entry): object
+    public function resolveInstance(string $entry, array $args = []): object
     {
         $ref = new ReflectionClass($entry);
 
@@ -280,17 +280,7 @@ final class Resolver implements ResolverInterface
             throw UnresolvableCallableException::notInstantiable($entry);
         }
 
-        $params = array_map(
-            fn ($param) => $this->resolveParameter($param),
-            // A variadic constructor must receive no argument at all: mapping
-            // the guard's [] back in would pack $args as [[]] (and raise a
-            // TypeError for typed variadics) instead of the native zero-arg
-            // construction. The variadic is always the last parameter.
-            \array_filter(
-                $ref->getConstructor()?->getParameters() ?: [],
-                fn ($param) => ! $param->isVariadic()
-            )
-        );
+        $params = $this->resolveArguments($ref->getConstructor()?->getParameters() ?: [], $args);
 
         return $ref->newInstanceArgs($params);
     }

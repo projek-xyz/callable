@@ -6,6 +6,7 @@ use Projek\Callable\Resolver;
 use Projek\Callable\UnresolvableCallableException;
 use Projek\Callable\UnresolvableParameterException;
 use Psr\Container\ContainerExceptionInterface;
+use Stubs\Constructed;
 use Stubs\FakeContainer;
 use Stubs\Invokable;
 use Stubs\Registered;
@@ -395,6 +396,70 @@ describe(Resolver::class, function () {
 
         expect((new Resolver($container))->resolveArguments($parameters, [1, 2, 'tail' => 'x']))
             ->toBe([1, 2, 'tail' => 'x']);
+    });
+
+    it('should construct exactly once per build', function () use ($container) {
+        // Regression guard (container PR finding): construction must happen
+        // exactly once inside resolveInstance() — no per-build re-entry.
+        Constructed::$built = 0;
+
+        $built = (new Resolver($container))->resolveInstance(Constructed::class, ['count' => 5]);
+
+        expect($built)->toBeAnInstanceOf(Constructed::class);
+        expect(Constructed::$built)->toBe(1);
+    });
+
+    it('should auto-wire the constructor arguments it was not given', function () use ($container) {
+        // Explicit $args bind by name; the untouched class-typed sibling
+        // auto-wires from the container and the default stays put.
+        Constructed::$built = 0;
+
+        $built = (new Resolver($container))->resolveInstance(Constructed::class, ['count' => 7]);
+
+        expect($built->dependency)->toBe($container->get(Registered::class));
+        expect($built->count)->toBe(7);
+        expect($built->label)->toBe('label');
+        expect(Constructed::$built)->toBe(1);
+    });
+
+    it('should surface UnresolvableParameterException for a missing required constructor parameter', function () use ($container) {
+        // Library contract: a missing required parameter is auto-wired — when
+        // nothing can supply it, the diagnosable library exception replaces
+        // the engine's bare ArgumentCountError. Construction never starts.
+        Constructed::$built = 0;
+        $param = (new ReflectionClass(Constructed::class))->getConstructor()->getParameters()[1];
+
+        expect(fn () => (new Resolver($container))->resolveInstance(Constructed::class))
+            ->toThrow(new UnresolvableParameterException($param));
+        expect(Constructed::$built)->toBe(0);
+    });
+
+    it('should ignore extra positional arguments for a class without a constructor', function () use ($container) {
+        // Native parity: PHP 8.4 allows extra constructor arguments for a
+        // class without a constructor — pin it here so a stricter engine
+        // behaviour surfaces as a spec failure, not a runtime surprise.
+        $instance = (new Resolver($container))->resolveInstance(Registered::class, ['extra']);
+
+        expect($instance)->toBeAnInstanceOf(Registered::class);
+    });
+
+    it('should pack provided arguments into a variadic constructor', function () use ($container) {
+        // The old []-guard handed a variadic constructor an empty list and
+        // dropped the caller's arguments; provided arguments must reach the
+        // constructor and pack exactly like a native call.
+        $instance = (new Resolver($container))->resolveInstance(Variadic::class, ['a', 'b']);
+
+        expect($instance->run())->toBe(['a', 'b']);
+    });
+
+    it('should reject an unknown named constructor argument before building', function () use ($container) {
+        // Native named-argument rule: an unknown name is an engine Error —
+        // raised during binding, before any constructor side effect runs.
+        Constructed::$built = 0;
+
+        expect(fn () => (new Resolver($container))->resolveInstance(Constructed::class, ['nope' => 1]))
+            ->toThrow(new Error('Unknown named parameter $nope'));
+        expect(Constructed::$built)->toBe(0);
     });
 
     it('should build a class with a variadic constructor through resolveInstance()', function () use ($container) {
