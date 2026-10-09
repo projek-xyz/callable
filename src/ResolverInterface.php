@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Projek\Callable;
 
+use Error;
 use Psr\Container\ContainerExceptionInterface;
 use ReflectionParameter;
 
@@ -19,6 +20,23 @@ interface ResolverInterface
      * @throws UnresolvableCallableException
      */
     public function resolveCallable($callable): callable;
+
+    /**
+     * Full argument-list resolution: native binding rules (integer keys are
+     * positional-by-order, string keys are named, unmatched keys spill into a
+     * trailing variadic, native Error ordering rules) + resolveParameter()
+     * for everything the caller did not provide. References into $provided
+     * are preserved so by-reference parameters keep mutating the caller's
+     * variables.
+     *
+     * @param  ReflectionParameter[]  $parameters
+     * @param  array<mixed>  $provided
+     * @return array<mixed>
+     *
+     * @throws Error If $provided breaks native argument rules (positional-after-named, overwrite, unknown named).
+     * @throws ContainerExceptionInterface | UnresolvableParameterException
+     */
+    public function resolveArguments(array $parameters, array $provided): array;
 
     /**
      * @throws ContainerExceptionInterface A container failure other than a missing entry — propagated untouched, never wrapped.

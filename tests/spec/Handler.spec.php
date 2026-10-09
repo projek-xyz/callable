@@ -43,6 +43,11 @@ describe(Handler::class, function () {
             return $this->resolved;
         }
 
+        public function resolveArguments(array $parameters, array $provided): array
+        {
+            throw new LogicException('resolveArguments() must not run in this spec.');
+        }
+
         public function resolveParameter(ReflectionParameter $param): mixed
         {
             throw new LogicException('resolveParameter() must not run in this spec.');

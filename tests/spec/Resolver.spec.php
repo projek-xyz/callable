@@ -348,6 +348,55 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveParameter($param, ['ignored-fixed', 1, 2, 'foo' => 'bar']))->toBe([]);
     });
 
+    it('should bind provided arguments and auto-wire the rest through resolveArguments', function () use ($container) {
+        // The full argument list is the resolver's job now: a named key binds
+        // its parameter while the unprovided class-typed sibling auto-wires
+        // from the container — delegation to resolveParameter() proven in one
+        // pass, without duplicating the binding matrix pinned in Handler.spec.
+        $parameters = (new ReflectionFunction(fn (Registered $r, int $n) => $r))->getParameters();
+
+        expect((new Resolver($container))->resolveArguments($parameters, ['n' => 7]))
+            ->toBe([$container->get(Registered::class), 7]);
+    });
+
+    it('should reject a positional argument that follows a named one in resolveArguments', function () use ($container) {
+        // Native call_user_func_array() throws this Error for the key order;
+        // binding lives in resolveArguments() now, so the ordering rule must
+        // fire here — before any auto-wiring runs.
+        $parameters = (new ReflectionFunction(fn ($a, $b) => $a))->getParameters();
+
+        expect(fn () => (new Resolver($container))->resolveArguments($parameters, ['b' => 'y', 0 => 'x']))
+            ->toThrow(new Error('Cannot use positional argument after named argument'));
+    });
+
+    it('should preserve references into the provided arguments in resolveArguments', function () use ($container) {
+        // Binding now runs in another object's frame — the reference chain
+        // into the provided array must survive the method boundary, or
+        // by-reference callables silently stop mutating the caller's variables.
+        $reference = 'original';
+        $parameters = (new ReflectionFunction(function (&$arg) {
+            // .
+        }))->getParameters();
+
+        $args = (new Resolver($container))->resolveArguments($parameters, [&$reference]);
+        $args[0] = 'changed';
+
+        expect($reference)->toBe('changed');
+    });
+
+    it('should splice leftover arguments into a trailing variadic in resolveArguments', function () use ($container) {
+        // Direct resolver-level pin of the variadic path (the end-to-end
+        // matrix runs through Handler): leftover positional keys renumber
+        // from zero, unmatched named arguments keep their string keys — both
+        // splice arms in one assertion.
+        $parameters = (new ReflectionFunction(function ($fixed, ...$rest) {
+            // .
+        }))->getParameters();
+
+        expect((new Resolver($container))->resolveArguments($parameters, [1, 2, 'tail' => 'x']))
+            ->toBe([1, 2, 'tail' => 'x']);
+    });
+
     it('should build a class with a variadic constructor through resolveInstance()', function () use ($container) {
         // resolveInstance() resolves constructor parameters through
         // resolveParameter(); a variadic has no default value, so without the
