@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.0](https://github.com/projek-xyz/callable/compare/v0.3.1...v0.4.0) (2026-10-09)
+
+### ⚠ BREAKING CHANGES
+
+* Handler no longer accepts a PSR-11 ContainerInterface or
+  looks the resolver up itself; callers pass a ResolverInterface directly.
+* ResolverInterface implementations must add
+  resolveArguments(array $parameters, array $provided): array.
+* ResolverInterface::resolveInstance gains a required
+  implementation parameter array $args = []; construction now runs through
+  resolveArguments() and builds the class exactly once.
+* the Projek\Callable\ParametersHelper trait no longer
+  exists; Handler delegates to ResolverInterface::resolveArguments().
+
+* drop ParametersHelper in favour of resolver-owned binding ([28d3fc2](https://github.com/projek-xyz/callable/commit/28d3fc21ab1c86e5857ae7f91ff17f3f1272766e))
+* require ResolverInterface in Handler constructor ([6a91f2a](https://github.com/projek-xyz/callable/commit/6a91f2a3d8ce78fd1ca8032907ad3d0b80c510ad))
+
+### Features
+
+* bind constructor arguments in resolveInstance($entry, $args) ([624ca8b](https://github.com/projek-xyz/callable/commit/624ca8b36926b1d5f51369448abafa871916d8a7))
+* expose resolveArguments() on ResolverInterface ([5bd2a13](https://github.com/projek-xyz/callable/commit/5bd2a13e972e5c1cdc4093b54a673515e3fdde8d))
+
 ## [0.3.1](https://github.com/projek-xyz/callable/compare/v0.3.0...v0.3.1) (2026-10-08)
 
 ## [0.3.0](https://github.com/projek-xyz/callable/compare/v0.2.0...v0.3.0) (2026-10-07)
