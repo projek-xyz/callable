@@ -211,9 +211,9 @@ describe(Resolver::class, function () {
             ->toThrow($exploding);
     });
 
-    it('should ignore explicit arguments — binding them is Handler\'s job', function () use ($container) {
-        // resolveParameter() no longer receives caller arguments at all: its only
-        // caller (Handler) binds provided values before auto-wiring. Passing one
+    it('should ignore explicit arguments — binding them is resolveArguments()\' job', function () use ($container) {
+        // resolveParameter() never receives caller arguments: resolveArguments()
+        // binds provided values one level up before auto-wiring. Passing one
         // here must resolve from the container's instance — never $explicit.
         $param = (new ReflectionFunction(fn (Registered $r) => $r))->getParameters()[0];
         $explicit = new Registered;
@@ -340,10 +340,10 @@ describe(Resolver::class, function () {
         expect((new Resolver($container))->resolveParameter($param))->toBe([]);
     });
 
-    it('should ignore explicit arguments for a variadic parameter (Handler splices them)', function () use ($container) {
-        // Collection moved to Handler's splice; the Resolver's variadic branch is
-        // now a guard that returns [] so getDefaultValue() is never called on a
-        // variadic parameter.
+    it('should ignore explicit arguments for a variadic parameter (resolveArguments() splices them)', function () use ($container) {
+        // Collection lives in resolveArguments()' splice; the Resolver's
+        // variadic branch is now a guard that returns [] so getDefaultValue()
+        // is never called on a variadic parameter.
         $param = (new ReflectionFunction(fn (string $fixed, ...$args) => $args))->getParameters()[1];
 
         expect((new Resolver($container))->resolveParameter($param, ['ignored-fixed', 1, 2, 'foo' => 'bar']))->toBe([]);

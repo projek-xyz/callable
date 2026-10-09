@@ -16,7 +16,7 @@
 src/              # Source code (PSR-4: Projek\Callable\):
   Handler.php     # Main entrypoint: resolves callables and invokes them
   Resolver.php    # Resolves callables from a PSR-11 container
-  ResolverInterface.php  # Contract for resolveCallable()/resolveParameter()
+  ResolverInterface.php  # Contract for resolveCallable()/resolveArguments()/resolveParameter()/resolveInstance()
   UnresolvableParameterException.php  # Thrown when a parameter is not resolvable
   UnresolvableCallableException.php  # Thrown when a callable cannot be resolved
   ResolverExceptionInterface.php  # Marker interface both exceptions implement
@@ -44,9 +44,9 @@ vendor/           # Composer dependencies
 
 ### `Handler`
 - **Entry point** for invoking callables with dependency injection
-- Constructor accepts `Psr\Container\ContainerInterface`
-- `handle($callable, $params)` resolves the callable via `Resolver`, then builds the full argument list via `buildArguments()` (see below): provided arguments bind exclusively in `Handler` (position → named), anything the caller did not provide is auto-wired from the container, then invokes
-- Argument binding mirrors native semantics:
+- Constructor accepts a `ResolverInterface` — no container wiring here; the container wires one for you (see Container Integration)
+- `handle($callable, $params)` resolves the callable via `resolveCallable()`, builds the full argument list via `ResolverInterface::resolveArguments()` (position → named binding for what the caller provided, auto-wiring from the container for the rest), then invokes
+- Argument binding mirrors native semantics (implemented in `Resolver::resolveArguments()`):
   - Integer keys are **positional by order** — the key values are ignored (`[5 => 'x']` feeds the first parameter; sparse keys from `array_filter()` still line up)
   - String keys are **named arguments** and bind by parameter name
   - A trailing variadic collects all remaining arguments: leftover positional keys are renumbered from `0`, unmatched named keys keep their string keys
@@ -63,14 +63,15 @@ vendor/           # Composer dependencies
   - `__call()`-only pairs → rejected with `UnresolvableCallableException` (no real method to reflect)
   - Closures/callables → returned as-is
   - Otherwise → throws `UnresolvableCallableException`
-- `resolveParameter($param)` — resolves a single *missing* function/method parameter (pure auto-wiring — provided arguments are bound by `Handler` before this is called) with this precedence:
-  1. Variadic parameters → `[]` (a guard: `Handler` splices variadic arguments itself, and `resolveInstance()` must not call `getDefaultValue()` on a variadic constructor)
+- `resolveArguments($parameters, $provided)` — builds the full argument list: native binding rules (integer keys are positional-by-order, string keys are named, leftover arguments spill into a trailing variadic, native `Error` ordering rules), `resolveParameter()` for every parameter the caller did not provide, and references into `$provided` preserved so by-reference parameters keep mutating the caller's variables
+- `resolveParameter($param)` — resolves a single *missing* function/method parameter (pure auto-wiring — provided arguments are bound by `resolveArguments()` before this is called) with this precedence:
+  1. Variadic parameters → `[]` (a guard: `resolveArguments()` splices variadic arguments itself; a direct call must not hand a spurious single value back)
   2. By-reference parameters → `UnresolvableParameterException` (a container/default value is a temporary; writes through the reference would be discarded)
   3. Container lookup by class type-hint (union/intersection types are **not** resolved — the declared type is only used in the error message). Only `NotFoundExceptionInterface` (entry absent) is handled — it falls through to steps 4–6; any other `ContainerExceptionInterface` (broken factory, circular reference) is **not caught and propagates untouched** — the container's orchestrator handles their own failures, and since the exception unwinds first, a generic failure never reaches the default; `UnresolvableParameterException` therefore chains only the `NotFoundExceptionInterface` as `previous`
   4. The parameter's default value
   5. Container lookup by bare parameter name — **only for untyped parameters**; built-in typed parameters keep their defaults instead of being shadowed by a name collision
   6. Otherwise throws `UnresolvableParameterException`
-- `resolveInstance($entry)` — `ReflectionClass::newInstanceArgs()` for unregistered classes; non-instantiable entries (interfaces, enums, abstracts) throw `UnresolvableCallableException`
+- `resolveInstance($entry, $args = [])` — binds `$args` against the constructor exactly like `handle()` binds `$params` (through `resolveArguments()`), then `ReflectionClass::newInstanceArgs()` — a single construction path that builds the class exactly once; non-instantiable entries (interfaces, enums, abstracts) throw `UnresolvableCallableException`
 
 ### `UnresolvableParameterException` / `UnresolvableCallableException`
 - `UnresolvableParameterException` — thrown when a parameter cannot be resolved; constructed from the failing `ReflectionParameter` itself plus an optional `detail` appended to the message (used by the by-reference guard and for class/union type names) and the container's `NotFoundExceptionInterface` as `previous` (generic container failures are never wrapped — they propagate untouched). The message mirrors native `TypeError` phrasing: `{callable}(): Argument #{1-based position} ($name) is not resolvable[: detail]`, where `{callable}` is `Class::method` for methods, the plain function name for functions, or `{closure}` for anonymous functions (normalized — reflection can report a class-bound closure as `Scope::{closure:file:line}`). Matching static factories are parked/not requested yet.
@@ -87,8 +88,8 @@ vendor/           # Composer dependencies
 1. **String callables** containing `::` are split into `[Class, method]`
 2. **Static methods** short-circuit to `[Class::class, 'method']`; non-static pairs get their class resolved from the container (or instantiated if unregistered)
 3. **Closures and callables** are returned unchanged; `__call()`-only pairs are rejected
-4. **Unregistered class names** are instantiated via `ReflectionClass::newInstanceArgs()`, with constructor params resolved from the container
-5. **Parameter resolution** follows the precedence listed under `resolveParameter` above (by-ref guard → class type-hint — NotFound falls through to the default, other container failures propagate untouched → default → untyped name lookup → `UnresolvableParameterException`)
+4. **Unregistered class names** are instantiated via `ReflectionClass::newInstanceArgs()` — explicit constructor arguments are bound through `resolveArguments()`; missing constructor params are auto-wired from the container
+5. **Parameter resolution** (for parameters the caller did not provide) follows the precedence listed under `resolveParameter` above (by-ref guard → class type-hint — NotFound falls through to the default, other container failures propagate untouched → default → untyped name lookup → `UnresolvableParameterException`)
 
 ## Coding Standards
 
@@ -105,11 +106,11 @@ vendor/           # Composer dependencies
 - Stub file live in `tests/stub/` with `Stubs\` PSR-4 prefix (autoload-dev)
 - Run all tests with `composer spec`
 - CI runs tests on PHP 8.4–8.5 matrix (`.github/workflows/tests.yml`), local dev pins PHP 8.4 via `.tool-versions` (asdf/mise)
-- The suite currently reports 100% coverage (87/87 statements) — new `src/` code needs specs to keep it there (CI coverage driver: xdebug)
+- The suite currently reports 100% coverage (85/85 statements) — new `src/` code needs specs to keep it there (CI coverage driver: xdebug)
 
 ## Container Integration
 
-The library is designed to work with any PSR-11 compatible container. The `Handler` and `Resolver` both accept a `Psr\Container\ContainerInterface`. When a parameter or class name is not found in the container, the `Resolver` will attempt to instantiate the class via reflection (for unregistered entries) or throw an `UnresolvableParameterException`/`UnresolvableCallableException`. Container failures **other than** a missing entry (`ContainerExceptionInterface` for a broken factory, circular reference, …) are not caught — by `resolveParameter()` nor `resolveCallable()` — they propagate untouched to the orchestrator, who owns the container.
+The library is designed to work with any PSR-11 compatible container. The `Resolver` wraps a `Psr\Container\ContainerInterface`; `Handler` is constructed with a `ResolverInterface` — `projek-xyz/container` wires the pair for you. When a parameter or class name is not found in the container, the `Resolver` will attempt to instantiate the class via reflection (for unregistered entries) or throw an `UnresolvableParameterException`/`UnresolvableCallableException`. Container failures **other than** a missing entry (`ContainerExceptionInterface` for a broken factory, circular reference, …) are not caught — by `resolveParameter()`, `resolveArguments()` nor `resolveCallable()` — they propagate untouched to the orchestrator, who owns the container.
 
 ## Conventions to Note
 

@@ -23,6 +23,7 @@ Works with any [PSR-11](https://www.php-fig.org/psr/psr-11/) container; the exam
 
 ```php
 use Projek\Callable\Handler;
+use Projek\Callable\Resolver;
 use Projek\Container;
 
 class Clock
@@ -44,7 +45,9 @@ class Greeter
 }
 
 $container = new Container([Clock::class => Clock::class]);
-$handler = new Handler($container);
+// Handler takes a resolver — projek-xyz/container wires this pair for you,
+// so a bare Handler only needs manual wiring like here.
+$handler = new Handler(new Resolver($container));
 
 // $who is bound by name; the Greeter receiver is built automatically and
 // its Clock dependency comes from the container.
