@@ -55,7 +55,7 @@ describe(Handler::class, function () {
 
         public function resolveInstance(string $entry, array $args = []): object
         {
-            throw new LogicException('resolveParameter() must not run in this spec.');
+            throw new LogicException('resolveInstance() must not run in this spec.');
         }
     };
 

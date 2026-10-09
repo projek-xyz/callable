@@ -463,24 +463,25 @@ describe(Resolver::class, function () {
     });
 
     it('should build a class with a variadic constructor through resolveInstance()', function () use ($container) {
-        // resolveInstance() resolves constructor parameters through
-        // resolveParameter(); a variadic has no default value, so without the
-        // isVariadic() guard ReflectionException("Failed to retrieve the default
-        // value") would leak instead of a working instance.
+        // resolveInstance() binds constructor parameters through
+        // resolveArguments(), which splices variadic arguments itself and
+        // skips the variadic in the main loop — so its missing default value
+        // is never read (no ReflectionException("Failed to retrieve the
+        // default value") can leak) and no spurious argument is packed.
         $instance = (new Resolver($container))->resolveCallable([Variadic::class, 'run'])[0];
 
         expect($instance)->toBeAnInstanceOf(Variadic::class);
-        // newInstanceArgs() must receive NO argument for the variadic: feeding
-        // the guard's [] back in would pack $args as [[]] — one phantom element
+        // With nothing provided, the variadic must receive NO argument:
+        // feeding one back in would pack $args as [[]] — one phantom element
         // a native `new Variadic()` never produces.
         expect($instance->run())->toBe([]);
     });
 
     it('should construct a typed variadic constructor natively through resolveInstance()', function () use ($container) {
-        // The phantom [] is loud for typed variadics: as the single argument it
-        // raises TypeError("... must be of type string, array given") — the
-        // class constructs natively but not through us, even when the element
-        // type is registered in the container.
+        // A phantom [] would be loud for typed variadics: as the single
+        // argument it raises TypeError("... must be of type string, array
+        // given") — the class constructs natively but not through us, even
+        // when the element type is registered in the container.
         $instance = (new Resolver($container))->resolveCallable([TypedVariadic::class, 'parts'])[0];
 
         expect($instance->parts())->toBe([]);

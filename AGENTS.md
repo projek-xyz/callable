@@ -32,6 +32,7 @@ tests/
     Invokable.php       # Class with an __invoke() method
     StaticOnly.php      # Class with a static method and constructor dependencies
     Status.php          # Backed enum used for default-value scenarios
+    Constructed.php     # Ctor with dependencies + static build counter (exactly-once/binding specs)
     Variadic.php        # Class with a variadic constructor and run() method
     TypedVariadic.php   # Class with a typed (string) variadic constructor and parts() method
     FakeContainer.php   # In-memory PSR-11 container double (memoizing, failure-injectable)

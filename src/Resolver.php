@@ -204,9 +204,9 @@ final class Resolver implements ResolverInterface
     public function resolveParameter(ReflectionParameter $param): mixed
     {
         // A variadic has no meaningful single value: resolveArguments() splices
-        // the arguments itself (and builds constructors through resolveInstance()),
-        // so only a direct call (specs, custom callers) can land
-        // here — keep container lookup from packing a spurious value.
+        // the arguments itself (resolveInstance() builds constructors through
+        // it), so only a direct call (specs, custom callers) can land here —
+        // keep container lookup from packing a spurious value.
         if ($param->isVariadic()) {
             return [];
         }
