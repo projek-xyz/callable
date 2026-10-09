@@ -7,8 +7,6 @@ namespace Projek\Callable;
 use Closure;
 use Error;
 use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\ContainerInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
@@ -17,13 +15,9 @@ final class Handler
 {
     use ParametersHelper;
 
-    public function __construct(ContainerInterface $container)
+    public function __construct(ResolverInterface $resolver)
     {
-        try {
-            $this->resolver = $container->get(ResolverInterface::class);
-        } catch (NotFoundExceptionInterface) {
-            $this->resolver = new Resolver($container);
-        }
+        $this->resolver = $resolver;
     }
 
     /**
