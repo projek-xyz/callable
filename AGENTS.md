@@ -126,3 +126,8 @@ The library is designed to work with any PSR-11 compatible container. The `Resol
 - The `Resolver` is the central piece — keep its logic consistent: resolve → instantiate → resolve params
 - When adding new callable types, modify `Resolver::resolveCallable()` and keep the method chain predictable
 - `Handler::handle()` aims to behave like native `call_user_func_array()` **except** that missing parameters are auto-wired from the container; when mirroring native behaviour, verify the actual engine behaviour with a snippet before assuming
+- PHPDoc style (pinned):
+  - Prose — class/function docblock descriptions and inline comments — wraps at **≤100 characters per line**; `@param`/`@return`/`@throws`/`@see` tags stay unwrapped, one tag per line (Pint aligns them)
+  - Prose wraps code-ish mentions in backticks like markdown (`$variables`, `function()`, `Class::method`, class names) while tag text stays plain
+  - No `@package` tags anywhere — Pint's `phpdoc_no_package` removes them; array shapes use `array<T>` rather than `T[]` (pint.json `phpdoc_array_type`)
+  - `@throws` entries sit on individual lines, one per line
