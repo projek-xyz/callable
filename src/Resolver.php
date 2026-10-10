@@ -38,50 +38,46 @@ final class Resolver implements ResolverInterface
             $callable = \explode('::', $callable, 2);
         }
 
-        // Static targets resolve to `Class::method` as-is: a static call never needs an
-        // instance, so the container is not consulted and the class is not instantiated —
-        // constructor side effects (and constructor dependencies the container cannot build)
-        // must not get in the way. Uniform rule for the string and array pair forms.
         if (
-            \is_array($callable) && \count($callable) === 2
-            && isset($callable[0], $callable[1])
-            && \is_string($callable[0]) && \is_string($callable[1])
+            (\is_array($callable) && isset($callable[0], $callable[1]))
+            && (\is_string($callable[0]) && \is_string($callable[1]))
         ) {
-            [$class, $method] = $callable;
-
-            if (\class_exists($class) && \method_exists($class, $method) && (new ReflectionMethod($class, $method))->isStatic()) {
-                return [$class, $method];
+            // Static targets resolve to `Class::method` as-is: a static call never needs an
+            // instance, so the container is not consulted and the class is not instantiated —
+            // constructor side effects (and constructor dependencies the container cannot build)
+            // must not get in the way. Uniform rule for the string and array pair forms.
+            if (\method_exists($callable[0], $callable[1]) && (new ReflectionMethod($callable[0], $callable[1]))->isStatic()) {
+                return $callable;
             }
 
             try {
                 // Non-static (or unknown) target: resolve an instance.
-                $callable[0] = $this->container->get($class);
+                $callable[0] = $this->container->get($callable[0]);
             } catch (NotFoundExceptionInterface $err) {
-                if (! \class_exists($class)) {
+                if (! \class_exists($callable[0])) {
                     // Neither registered nor an existing class: name the entry so the
                     // typo (missing namespace, wrong FQCN) is obvious at a glance.
-                    throw UnresolvableCallableException::invalidCallable($class, $err);
+                    throw UnresolvableCallableException::invalidCallable($callable[0], $err);
                 }
 
-                $callable[0] = $this->resolveInstance($class);
+                $callable[0] = $this->resolveInstance($callable[0]);
             }
         }
 
-        // `__call()`-based "methods" pass `is_callable()` but have no real method to reflect,
-        // so parameter type-hints could never be honoured — reject them here with a diagnosable
-        // error instead of failing later in `Handler`.
         if (
             \is_array($callable) && isset($callable[0], $callable[1])
-            && \is_object($callable[0]) && \is_string($callable[1])
             && ! \method_exists($callable[0], $callable[1])
         ) {
+            // `__call()`-based "methods" pass `is_callable()` but have no real method to reflect,
+            // so parameter type-hints could never be honoured — reject them here with a diagnosable
+            // error instead of failing later in `Handler`.
             throw UnresolvableCallableException::methodNotFound($callable[0], $callable[1]);
         }
 
-        // A bare class-string of an invokable class resolves to its instance (`Handler`
-        // reflects `__invoke()` on it). Class-strings without `__invoke()` are not callables
-        // and fall through to the exception below.
         if (\is_string($callable) && \class_exists($callable) && \method_exists($callable, '__invoke')) {
+            // A bare class-string of an invokable class resolves to its instance (`Handler`
+            // reflects `__invoke()` on it). Class-strings without `__invoke()` are not callables
+            // and fall through to the exception below.
             try {
                 $callable = $this->container->get($callable);
             } catch (NotFoundExceptionInterface $err) {
@@ -94,7 +90,6 @@ final class Resolver implements ResolverInterface
         }
 
         if ($callable instanceof Closure || \is_callable($callable)) {
-            /** @var callable */
             return $callable;
         }
 
@@ -137,9 +132,9 @@ final class Resolver implements ResolverInterface
             $declared[$param->getName()] = true;
         }
 
-        // Native `call_user_func_array()` rejects named arguments that match no declared
-        // parameter; only a trailing variadic may absorb them.
         if ($variadic === null) {
+            // Native `call_user_func_array()` rejects named arguments that match no declared
+            // parameter; only a trailing variadic may absorb them.
             foreach ($normalized as $key => $value) {
                 if (! \is_int($key) && ! isset($declared[$key])) {
                     throw new Error('Unknown named parameter $'.$key);
@@ -208,19 +203,19 @@ final class Resolver implements ResolverInterface
      */
     public function resolveParameter(ReflectionParameter $param): mixed
     {
-        // A variadic has no meaningful single value: `resolveArguments()` splices the
-        // arguments itself (`resolveInstance()` builds constructors through it), so only a
-        // direct call (specs, custom callers) can land here — keep container lookup from
-        // packing a spurious value.
         if ($param->isVariadic()) {
+            // A variadic has no meaningful single value: `resolveArguments()` splices the
+            // arguments itself (`resolveInstance()` builds constructors through it), so only a
+            // direct call (specs, custom callers) can land here — keep container lookup from
+            // packing a spurious value.
             return [];
         }
 
-        // By-reference parameters must be provided by the caller: a value pulled from the
-        // container (or a default) is a temporary — PHP lets the call succeed, but every write
-        // through the reference is discarded when the call returns, so an output-style callable
-        // would silently produce nothing.
         if ($param->isPassedByReference()) {
+            // By-reference parameters must be provided by the caller: a value pulled from the
+            // container (or a default) is a temporary — PHP lets the call succeed, but every write
+            // through the reference is discarded when the call returns, so an output-style callable
+            // would silently produce nothing.
             throw new UnresolvableParameterException($param, 'by-reference parameter must be provided explicitly');
         }
 
@@ -250,18 +245,18 @@ final class Resolver implements ResolverInterface
             $typeName = (string) $type;
         }
 
-        // Defaults are consulted only when the container cannot provide the type.
         if ($param->isDefaultValueAvailable()) {
+            // Defaults are consulted only when the container cannot provide the type.
             return $param->getDefaultValue();
         }
 
-        // Untyped parameters fall back to a lookup by bare parameter name. Built-in typed
-        // parameters deliberately do NOT: `fn (int $count = 3)` must keep its own default
-        // instead of being shadowed by an unrelated container entry registered under that name.
         if ($type === null) {
-            // Same contract as the class-typed lookup above: a miss falls through, any
-            // other container failure propagates untouched.
+            // Untyped parameters fall back to a lookup by bare parameter name. Built-in typed
+            // parameters deliberately do NOT: `fn (int $count = 3)` must keep its own default
+            // instead of being shadowed by an unrelated container entry registered under that name.
             try {
+                // Same contract as the class-typed lookup above: a miss falls through, any
+                // other container failure propagates untouched.
                 return $this->container->get($param->getName());
             } catch (NotFoundExceptionInterface $err) {
                 $notFound = $err;
@@ -282,8 +277,8 @@ final class Resolver implements ResolverInterface
             throw UnresolvableCallableException::notInstantiable($className);
         }
 
-        $params = $this->resolveArguments($ref->getConstructor()?->getParameters() ?: [], $args);
-
-        return $ref->newInstanceArgs($params);
+        return $ref->newInstanceArgs(
+            $this->resolveArguments($ref->getConstructor()?->getParameters() ?: [], $args)
+        );
     }
 }

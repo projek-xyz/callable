@@ -82,11 +82,11 @@ final class Handler
 
         [$class, $method] = $callable;
 
-        // `__call()`-based "methods" fail `method_exists()`; the bundled `Resolver` rejects them
-        // earlier, so this only guards custom `ResolverInterface` implementations that keep such
-        // pairs. Malformed pairs cannot reach here: `resolveCallable(): callable` only admits
-        // `is_callable()` values, which always carry a string method.
         if (! \method_exists($class, $method)) {
+            // `__call()`-based "methods" fail `method_exists()`; the bundled `Resolver` rejects
+            // them earlier, so this only guards custom `ResolverInterface` implementations that
+            // keep such pairs. Malformed pairs cannot reach here: `resolveCallable(): callable`
+            // only admits `is_callable()` values, which always carry a string method.
             throw UnresolvableCallableException::methodNotFound($class, $method);
         }
 
