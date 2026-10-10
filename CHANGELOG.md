@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.2](https://github.com/projek-xyz/callable/compare/v0.4.1...v0.4.2) (2026-10-10)
+
+### Features
+
+* hide resolver container from var_dump() output ([76b802b](https://github.com/projek-xyz/callable/commit/76b802bcc5ca4baa5fc4fa0022b47f75a39dd424))
+
 ## [0.4.1](https://github.com/projek-xyz/callable/compare/v0.4.0...v0.4.1) (2026-10-09)
 
 ### Features
