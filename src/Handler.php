@@ -11,6 +11,14 @@ use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
 
+/**
+ * Entry point: resolve any callable-shape and invoke it with dependency injection.
+ *
+ * Argument binding mirrors native `call_user_func_array()` — integer keys are positional by
+ * order, string keys are named arguments, and a trailing variadic absorbs the rest — except
+ * that parameters the caller did not provide are auto-wired from the container (then their
+ * default value) instead of raising `ArgumentCountError`.
+ */
 final class Handler
 {
     public function __construct(public readonly ResolverInterface $resolver) {}
@@ -18,17 +26,17 @@ final class Handler
     /**
      * Invoke the given callable.
      *
-     * Binds $params like native call_user_func_array() — integer keys are
-     * positional by order, string keys are named arguments, unmatched named
-     * arguments spill into a trailing variadic — with one addition: parameters
-     * the caller did not provide are auto-wired from the container (then their
-     * default value) instead of raising ArgumentCountError. The binding itself
-     * is delegated to ResolverInterface::resolveArguments().
+     * Binds `$params` like native `call_user_func_array()` — integer keys are positional by
+     * order, string keys are named arguments, unmatched named arguments spill into a trailing
+     * variadic — with one addition: parameters the caller did not provide are auto-wired from
+     * the container (then their default value) instead of raising `ArgumentCountError`. The
+     * binding itself is delegated to `ResolverInterface::resolveArguments()`.
      *
      * @template T of object
      *
      * @param  array{class-string<T>|T,string}|callable|T|string  $callable
-     * @param  array<mixed>  $params
+     * @param  array<mixed>  $params  Arguments to bind; anything omitted is auto-wired from the container.
+     * @return mixed Whatever the callable returns.
      *
      * @throws ContainerExceptionInterface If the container fails with more than a missing entry (propagated untouched).
      * @throws Error If $params violates native argument-ordering rules.
@@ -43,8 +51,8 @@ final class Handler
             $params
         );
 
-        // Without a variadic, extra positional arguments are silently dropped —
-        // native does the same for userland functions.
+        // Without a variadic, extra positional arguments are silently dropped — native does
+        // the same for userland functions.
         return \call_user_func_array($callable, $args);
     }
 
@@ -74,11 +82,10 @@ final class Handler
 
         [$class, $method] = $callable;
 
-        // __call()-based "methods" fail method_exists(); the bundled Resolver
-        // rejects them earlier, so this only guards custom ResolverInterface
-        // implementations that keep such pairs. Malformed pairs cannot reach
-        // here: resolveCallable(): callable only admits is_callable() values,
-        // which always carry a string method.
+        // `__call()`-based "methods" fail `method_exists()`; the bundled `Resolver` rejects them
+        // earlier, so this only guards custom `ResolverInterface` implementations that keep such
+        // pairs. Malformed pairs cannot reach here: `resolveCallable(): callable` only admits
+        // `is_callable()` values, which always carry a string method.
         if (! \method_exists($class, $method)) {
             throw UnresolvableCallableException::methodNotFound($class, $method);
         }

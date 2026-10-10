@@ -7,13 +7,19 @@ namespace Projek\Callable;
 use InvalidArgumentException;
 use Throwable;
 
+/**
+ * Thrown when the given value is not (and cannot become) a callable: scalars, plain
+ * class-strings, malformed pairs, non-instantiable entries, or missing methods.
+ *
+ * The message names the offending entry the way PHP names its own errors; catch
+ * `ResolverExceptionInterface` to handle any resolution failure in one place.
+ */
 final class UnresolvableCallableException extends InvalidArgumentException implements ResolverExceptionInterface
 {
     /**
-     * Construction is routed through the named factories below: each failure
-     * site knows WHY resolution failed, and a bare message string cannot
-     * express that reason on its own. The constructor is private so every
-     * throw site is forced to pick the precise diagnosis.
+     * Construction is routed through the named factories below: each failure site knows WHY
+     * resolution failed, and a bare message string cannot express that reason on its own.
+     * The constructor is private so every throw site is forced to pick the precise diagnosis.
      */
     private function __construct(string $message, ?Throwable $previous = null)
     {
@@ -21,9 +27,11 @@ final class UnresolvableCallableException extends InvalidArgumentException imple
     }
 
     /**
-     * The given value is not a callable and cannot be turned into one:
-     * scalars, plain class-strings, malformed arrays, or pairs whose method
-     * exists but cannot be called from here (private method).
+     * The given value is not a callable and cannot be turned into one: scalars,
+     * plain class-strings, malformed arrays, or pairs whose method exists but cannot be called
+     * from here (private method).
+     *
+     * @internal
      */
     public static function invalidCallable(mixed $callable, ?Throwable $previous = null): static
     {
@@ -48,9 +56,11 @@ final class UnresolvableCallableException extends InvalidArgumentException imple
     }
 
     /**
-     * The entry names a class-like that can never be instantiated (enum,
-     * abstract class): the instantiate-and-inject path is impossible by
-     * definition, and reflection would leak a raw ReflectionException.
+     * The entry names a class-like that can never be instantiated (enum, abstract class):
+     * the instantiate-and-inject path is impossible by definition, and reflection would leak
+     * a raw `ReflectionException`.
+     *
+     * @internal
      */
     public static function notInstantiable(string $entry): static
     {
@@ -58,8 +68,10 @@ final class UnresolvableCallableException extends InvalidArgumentException imple
     }
 
     /**
-     * The pair's method does not exist — including __call()-only "methods",
-     * which pass is_callable() but have no real method to reflect.
+     * The pair's method does not exist — including `__call()`-only "methods", which pass
+     * `is_callable()` but have no real method to reflect.
+     *
+     * @internal
      */
     public static function methodNotFound(string|object $class, string $method): static
     {
@@ -71,8 +83,8 @@ final class UnresolvableCallableException extends InvalidArgumentException imple
     }
 
     /**
-     * Render a scalar, null or array as a short message fragment — strings and
-     * objects are handled by invalidCallable() before describe() is reached.
+     * Render a scalar, null or array as a short message fragment — strings and objects are
+     * handled by `invalidCallable()` before `describe()` is reached.
      */
     private static function describe(mixed $value): ?string
     {

@@ -5,6 +5,7 @@
         "combine_consecutive_issets": true,
         "combine_consecutive_unsets": true,
         "declare_strict_types": true,
-        "fully_qualified_strict_types": true
+        "fully_qualified_strict_types": true,
+        "phpdoc_array_type": true
     }
 }
