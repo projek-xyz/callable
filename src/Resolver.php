@@ -98,7 +98,7 @@ final class Resolver implements ResolverInterface
     /**
      * {@inheritDoc}
      */
-    public function resolveArguments(array $parameters, array $provided): array
+    public function resolveArguments(array $params, array $provided): array
     {
         $normalized = [];
         $seenNamed = false;
@@ -121,7 +121,7 @@ final class Resolver implements ResolverInterface
         $variadic = null;
         $declared = [];
 
-        foreach ($parameters as $param) {
+        foreach ($params as $param) {
             if ($param->isVariadic()) {
                 $variadic = $param;
 
@@ -144,7 +144,7 @@ final class Resolver implements ResolverInterface
         $args = [];
         $consumed = [];
 
-        foreach ($parameters as $param) {
+        foreach ($params as $param) {
             if ($param->isVariadic()) {
                 continue;
             }
@@ -272,12 +272,12 @@ final class Resolver implements ResolverInterface
     /**
      * {@inheritDoc}
      */
-    public function resolveInstance(string $entry, array $args = []): object
+    public function resolveInstance(string $className, array $args = []): object
     {
-        $ref = new ReflectionClass($entry);
+        $ref = new ReflectionClass($className);
 
         if (! $ref->isInstantiable()) {
-            throw UnresolvableCallableException::notInstantiable($entry);
+            throw UnresolvableCallableException::notInstantiable($className);
         }
 
         $params = $this->resolveArguments($ref->getConstructor()?->getParameters() ?: [], $args);

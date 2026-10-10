@@ -29,7 +29,7 @@ interface ResolverInterface
      * are preserved so by-reference parameters keep mutating the caller's
      * variables.
      *
-     * @param  ReflectionParameter[]  $parameters
+     * @param  ReflectionParameter[]  $params
      * @param  array<mixed>  $provided
      * @return array<mixed>
      *
@@ -37,7 +37,7 @@ interface ResolverInterface
      * @throws ContainerExceptionInterface A container failure other than a missing entry — propagated untouched, never wrapped.
      * @throws UnresolvableParameterException If a parameter cannot be auto-wired.
      */
-    public function resolveArguments(array $parameters, array $provided): array;
+    public function resolveArguments(array $params, array $provided): array;
 
     /**
      * @throws ContainerExceptionInterface A container failure other than a missing entry — propagated untouched, never wrapped.
@@ -48,7 +48,7 @@ interface ResolverInterface
     /**
      * @template T of object
      *
-     * @param  class-string<T>  $entry
+     * @param  class-string<T>  $className
      * @param  array<mixed>  $args  bound against the constructor exactly like handle() binds $params.
      * @return T
      *
@@ -57,5 +57,5 @@ interface ResolverInterface
      * @throws UnresolvableCallableException If the entry is not instantiable.
      * @throws UnresolvableParameterException If a constructor parameter cannot be resolved.
      */
-    public function resolveInstance(string $entry, array $args = []): object;
+    public function resolveInstance(string $className, array $args = []): object;
 }
