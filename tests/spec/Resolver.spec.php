@@ -540,12 +540,14 @@ describe(Resolver::class, function () {
     it('should hide container property from var_dump', function () use ($container) {
         ob_start();
         var_dump(new Resolver($container));
-        $output = ob_get_clean();
+        $output = preg_replace('/\e\[[\d;]*m/', '', ob_get_clean());
 
-        // The object handle and Kahlan's file:line prefix are process-dependent;
-        // a leaked `$container` would render (1) instead of (0).
+        // The dump shape differs by environment — stock PHP prints
+        // `object(X)#N`, xdebug's develop mode prints `<file>:<line>:` and
+        // `class X#N` — and the handle is process-dependent; a leaked
+        // `$container` would render (1) instead of (0).
         expect($output)->toMatch(
-            '/'.preg_quote(Resolver::class, '/').'#\d+ \(0\) \{\n\}\n$/'
+            '/(?:object\()?'.preg_quote(Resolver::class, '/').'\)?#\d+ \(0\) \{\n\}\n/'
         );
     });
 });
