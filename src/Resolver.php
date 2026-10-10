@@ -15,10 +15,14 @@ use ReflectionParameter;
 
 final class Resolver implements ResolverInterface
 {
-    public function __construct(
-        private ContainerInterface $container
-    ) {
-        // .
+    public function __construct(private ContainerInterface $container) {}
+
+    /**
+     * Hide the `$container` property from `var_dump()` output.
+     */
+    public function __debugInfo()
+    {
+        return [];
     }
 
     /**
