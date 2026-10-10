@@ -23,7 +23,7 @@ final class Resolver implements ResolverInterface
     /**
      * Hide the `$container` property from `var_dump()` output.
      */
-    public function __debugInfo()
+    public function __debugInfo(): array
     {
         return [];
     }

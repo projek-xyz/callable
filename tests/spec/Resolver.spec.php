@@ -536,4 +536,16 @@ describe(Resolver::class, function () {
 
         expect(fn () => $resolver->resolveParameter($param))->toThrow($exploding);
     });
+
+    it('should hide container property from var_dump', function () use ($container) {
+        ob_start();
+        var_dump(new Resolver($container));
+        $output = ob_get_clean();
+
+        // The object handle and Kahlan's file:line prefix are process-dependent;
+        // a leaked `$container` would render (1) instead of (0).
+        expect($output)->toMatch(
+            '/'.preg_quote(Resolver::class, '/').'#\d+ \(0\) \{\n\}\n$/'
+        );
+    });
 });
